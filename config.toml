@@ -1,0 +1,40 @@
+
+workers = 2
+
+[[notify]]
+  id = "notes-mail"
+  type = "mail"
+  server = "magikinfo.cz"
+  port = 587
+  user = "tester@magikinfo.cz"
+  pass = "pass"
+  from = "tester@magikinfo.cz"
+  to = ["tester@zori.cz"]
+  
+  subject_fail = "{check}{params} problem"
+  subject_slow = "{check}{params} slow"
+  subject_fail_ok = "{check}{params} ok"
+  subject_slow_ok = "{check}{params} ok"
+  text_fail = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\nError: {error}\n"
+  text_slow = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse time: {responsetime}\nExpected time: {expectedtime}\n"
+  text_fail_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\n"
+  text_slow_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
+  repeat_fail = ["15s", "0"]
+  repeat_slow = ["60s", "6m", "0"]
+
+[[check]]
+  type = "web"
+  check = "http://www.google.com"
+  repeat = "1m"
+  code = 200
+  time = 500
+  fails = 2
+  slows = 2
+  notify_fail = ["notes-mail"]
+  notify_slow = ["notes-mail"]
+
+[[check]]
+  type = "cmd"
+  check = "/usr/bin/ping"
+  params = ["google.com",  "-c1", "-t30"]
+  repeat = "1m"
