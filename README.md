@@ -23,24 +23,25 @@ But do not worry, tests will come, adding tests will be good opportunity to refa
 
 ## TODO:
 
-- documentation,
-- tests (!),
-- installation instructions,
-- implement flags for test notification, config and log,
-- init scripts for: sysVinit (for legacy installations), runit, OpenRC and yes ... systemd. ;-)
-- Windows specific info/functions (will it currently run?):
-  - run as service,
-  - hide cmd,
-  - ping on Windows.
-- implement better API checking (inspired by [statusOK](https://github.com/sanathp/statusok)),
-- implement jabber (xmpp) notifications,
-- implement cmd notifications (you can use any command as alerter),
-- check code for any panics, allow them only on process start, but not when it is running (should be ok already),
-- add check types: ping and other helper types to make config clearer,
-- port testing,
-- database storage: influxdb, maybe more if needed,
-- document db usage, grafana integration,
-- implement [rtop](https://github.com/rapidloop/rtop) funkcionality.
+- [ ] documentation,
+- [ ] tests (!),
+- [ ] installation instructions,
+- [ ] implement flags for test notification, config and log,
+- [ ] init scripts for: sysVinit (for legacy installations), runit, OpenRC and yes ... systemd. ;-)
+-  [ ] Windows specific info/functions (will it currently run?):
+  - [ ] run as service,
+  - [ ] hide cmd,
+  - [ ] ping on Windows.
+- [ ] implement better API checking (inspired by [statusOK](https://github.com/sanathp/statusok)),
+- [ ] implement jabber (xmpp) notifications,
+- [ ] implement cmd notifications (you can use any command as alerter),
+- [ ] add [[global]] section to config, allow defining notification templates there,
+- [ ] check code for any panics, allow them only on process start, but not when it is running (should be ok already),
+- [ ] add check types: ping and other helper types to make config clearer,
+- [ ] port testing,
+- [ ] database storage: influxdb, maybe more if needed,
+- [ ] document db usage, grafana integration,
+- [ ] implement [rtop](https://github.com/rapidloop/rtop) funkcionality.
   Configure ssh access, set thresholds and you have remote system resources monitored (cpu, ram, hdd, ...).
 
 ## Contributions

@@ -3,8 +3,9 @@ package config
 import (
 	"fmt"
 
-	"github.com/BurntSushi/toml"
 	"github.com/ernierasta/zorix/shared"
+
+	"github.com/BurntSushi/toml"
 )
 
 const (
@@ -145,6 +146,19 @@ func (c *Config) normalizeNotifications() {
 		}
 		if notif.TextSlow == "" {
 			c.Notifications[i].TextSlow = NotifTextSlow
+		}
+		if notif.RepeatFail == nil {
+			c.Notifications[i].RepeatFail = []shared.Duration{
+				shared.Duration{Duration: 60},
+				shared.Duration{Duration: 300},
+				shared.Duration{Duration: 600},
+			}
+		}
+		if notif.RepeatSlow == nil {
+			c.Notifications[i].RepeatSlow = []shared.Duration{
+				shared.Duration{Duration: 300},
+				shared.Duration{Duration: 0},
+			}
 		}
 	}
 }

@@ -1,40 +1,161 @@
+[global]
+  # In [global] section we define some general options.
 
-workers = 2
+  # Max workers for specific worker type:
+  # workers = 2 # means, that max 2 web workers will run, and max 2 cmd workers, ...
+  # zorix will always run max 1 worker for check
+  workers = 2
+  
+  # Notification templates, you can overwrite them inside notify sections.
+  # There are 2 types of notifications:
+  #  - fail: check failed completely (wrong code returned, timeout),
+  #  - slow: result was slower then expected.
+  # Both notifications has also recovery messages. They are sent, when problem is gone.
+  #
+  # All variables have to be surrounded by '{' and '}'.
+  # Available variables:
+  #  matching config options:
+  #   {check}  - check as defined, f.e. : https://www.google.com, ping 
+  #   {params} - space + params as defined in config, if no params: no space
+  #  results:
+  #    {responsecode} - code returned by check
+  #    {expectedcode} - expected code (`code` in config)
+  #    {timestamp}    - timestamp repsenting moment, when notification is send
+  #    {expectedtime} - expected time (`time` in config)
+  #    {responsetime} - time, response took
+  #    {error}        - error returned by check
+  #
+  notify_subject_fail = "{check}{params} problem"
+  notify_subject_slow = "{check}{params} slow"
+  notify_subject_fail_ok = "{check}{params} ok"
+  notify_subject_slow_ok = "{check}{params} ok"
+  notify_text_fail = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\nError: {error}\n"
+  notify_text_slow = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
+  notify_fail_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\n"
+  notify_slow_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
+
 
 [[notify]]
+  # There can be unlimited amount of [[notify]] sections.
+
+  # id, MANDATORY.
+  # You can reference it in notify_slow and notify_fail in [[check]]. 
   id = "notes-mail"
+
+  # type.
+  # default: mail
+  # Notification type, currently available:
+  # type = "mail"
+  # type = "cmd"
   type = "mail"
+
+  # server, MANDATORY.
+  # Service server name or ip.
   server = "magikinfo.cz"
+
+  # port, MANDATORY.
+  # Service port. For mail, we support TLS on 465 and STARTTLS on 587
   port = 587
+
+  # user, MANDATORY.
+  # Username to authenticate with.
   user = "tester@magikinfo.cz"
+
+  # pass, MANDATORY.
+  # User password.
   pass = "pass"
-  from = "tester@magikinfo.cz"
-  to = ["tester@zori.cz"]
   
-  subject_fail = "{check}{params} problem"
-  subject_slow = "{check}{params} slow"
-  subject_fail_ok = "{check}{params} ok"
-  subject_slow_ok = "{check}{params} ok"
-  text_fail = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\nError: {error}\n"
-  text_slow = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse time: {responsetime}\nExpected time: {expectedtime}\n"
-  text_fail_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\n"
-  text_slow_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
-  repeat_fail = ["15s", "0"]
+  # from.
+  # default: taken from user.
+  # Sent from (if supported by service).
+  from = "tester@magikinfo.cz"
+
+  # to, MANDATORY.
+  # Sent to (if make sense for this type). This is list of usernames separated by comma.
+  to = ["tester@zori.cz"]
+ 
+  # Overwrite global template if needed.
+  #subject_fail = "{check}{params} problem"
+  #subject_slow = "{check}{params} slow"
+  #subject_fail_ok = "{check}{params} ok"
+  #subject_slow_ok = "{check}{params} ok"
+  #text_fail = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\nError: {error}\n"
+  #text_slow = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
+  #text_fail_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\n"
+  #text_slow_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
+  
+  # repeat_fail.
+  # default: ["1m", "5m", "10m"]
+  # This is notification schedule for failure event. With default configuration
+  # it will send second message 1 minute after first, third after 5 minutes and all others with 10 minutes between each other.
+  #
+  # If you want to stop sending, define last values as "0".
+  repeat_fail = ["1m", "5m", "10m"]
+
+  # repeat_slow.
+  # default: ["5m", "0"]
+  # This is notification schedule for slowdown event. The same apply as for repeat_fail.
   repeat_slow = ["60s", "6m", "0"]
 
 [[check]]
-  type = "web"
-  check = "http://www.google.com"
-  repeat = "1m"
-  code = 200
-  time = 500
-  fails = 2
-  slows = 2
-  notify_fail = ["notes-mail"]
-  notify_slow = ["notes-mail"]
+  # There can be unlimited amount of [[check]] sections.
 
-[[check]]
-  type = "cmd"
-  check = "/usr/bin/ping"
-  params = ["google.com",  "-c1", "-t30"]
+  # type
+  # default: "web"
+  # Currently available: 
+  # type = "web"
+  # type = "cmd"
+  type = "web"
+
+  # check, MANDATORY.
+  # Depending on type, check can be:
+  #   `http://www.google.com`
+  #   `/usr/bin/ping` or just `ping`
+  check = "http://www.google.com"
+
+  # params.
+  # default: [""]
+  # Params are currently used for cmd module. They are passed
+  # to check as cmd line params.
+  # params = ["google.com",  "-c1", "-t30"]
+
+  # repeat.
+  # default: "1m"
+  # Defines how often check should run. Time is counted from the end of last check.
   repeat = "1m"
+
+  # code.
+  # default: 200
+  # Requested code. All types return codes are mapped to html codes.
+  # For cmd type:
+  # 200 - all ok
+  # 404 - command not found or error while starting process
+  # 500 - non-0 code returned
+  code = 200
+  
+  # time.
+  # default: 1000 ms
+  # Determines in how much ms request have to be realized.
+  time = 500
+
+  # fails.
+  # default: 0
+  # How many failures can occur before first notification is send.
+  fails = 2
+
+  # slows.
+  # default: 3
+  # How many slowdowns can occur before first notification is send.
+  slows = 2
+
+  # notify_fail.
+  # default: all configured notifications
+  # You can limit which notifications will be used for this check. It is list of notification ID's.
+  # You can disable fail notification completely for this check by setting:
+  # notify_fail = []
+  notify_fail = ["notes-mail"]
+
+  # notify_slow.
+  # default: all configured notifications
+  # The same as notify_fail, but for slowdowns.
+  notify_slow = ["notes-mail"]

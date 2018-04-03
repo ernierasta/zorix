@@ -19,7 +19,7 @@ func createParser(c shared.Check) func(w io.Writer, tag string) (int, error) {
 			}
 			return w.Write([]byte(""))
 		case "timestamp":
-			return w.Write([]byte(c.Timestamp.Format("2.1.2006 15:04")))
+			return w.Write([]byte(c.Timestamp.Format("2.1.2006 15:04:05")))
 		case "responsecode":
 			return w.Write([]byte(fmt.Sprintf("%d", c.ReturnedCode)))
 		case "responsetime":
