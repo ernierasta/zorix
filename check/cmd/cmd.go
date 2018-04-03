@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/ernierasta/spock/shared"
+	"github.com/ernierasta/zorix/shared"
 )
 
 const (

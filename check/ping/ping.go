@@ -4,7 +4,7 @@ package ping
 import (
 	"time"
 
-	"github.com/ernierasta/spock/shared"
+	"github.com/ernierasta/zorix/shared"
 )
 
 const (

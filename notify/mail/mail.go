@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ernierasta/spock/shared"
+	"github.com/ernierasta/zorix/shared"
 )
 
 // Send sends mail via smtp.

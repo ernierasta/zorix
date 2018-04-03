@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/ernierasta/spock/shared"
+	"github.com/ernierasta/zorix/shared"
 )
 
 func createParser(c shared.Check) func(w io.Writer, tag string) (int, error) {

@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ernierasta/spock/check/cmd"
-	"github.com/ernierasta/spock/check/web"
-	"github.com/ernierasta/spock/shared"
+	"github.com/ernierasta/zorix/check/cmd"
+	"github.com/ernierasta/zorix/check/web"
+	"github.com/ernierasta/zorix/shared"
 )
 
 // Manager registers all availabile checks and lounches them

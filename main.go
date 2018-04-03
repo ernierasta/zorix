@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/bcicen/grmon/agent"
-	"github.com/ernierasta/spock/check"
-	"github.com/ernierasta/spock/config"
-	"github.com/ernierasta/spock/notify"
-	"github.com/ernierasta/spock/processor"
-	"github.com/ernierasta/spock/shared"
+	"github.com/ernierasta/zorix/check"
+	"github.com/ernierasta/zorix/config"
+	"github.com/ernierasta/zorix/notify"
+	"github.com/ernierasta/zorix/processor"
+	"github.com/ernierasta/zorix/shared"
 )
 
 func main() {

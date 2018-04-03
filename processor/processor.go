@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ernierasta/spock/shared"
+	"github.com/ernierasta/zorix/shared"
 )
 
 // Processor analyze and store check results.

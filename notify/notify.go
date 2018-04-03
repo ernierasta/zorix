@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/ernierasta/spock/shared"
-	"github.com/ernierasta/spock/shared/mail"
+	"github.com/ernierasta/zorix/notify/mail"
+	"github.com/ernierasta/zorix/shared"
 	"github.com/valyala/fasttemplate"
 )
 
