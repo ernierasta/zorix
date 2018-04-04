@@ -1,11 +1,20 @@
 [global]
   # In [global] section we define some general options.
 
+  # workers, MANDATORY.
   # Max workers for specific worker type:
   # workers = 2 # means, that max 2 web workers will run, and max 2 cmd workers, ...
   # zorix will always run max 1 worker for check
   workers = 2
-  
+ 
+  # loglevel.
+  # default: "debug"
+  # Set log level. Available:
+  # debug
+  # warn
+  # error
+  loglevel = "warn"
+
   # Notification templates, you can overwrite them inside notify sections.
   # There are 2 types of notifications:
   #  - fail: check failed completely (wrong code returned, timeout),
@@ -139,13 +148,15 @@
   time = 500
 
   # fails.
-  # default: 0
+  # default: 1
   # How many failures can occur before first notification is send.
+  # Must be bigger then 0.
   fails = 2
 
   # slows.
   # default: 3
   # How many slowdowns can occur before first notification is send.
+  # Must be bigger then 0.
   slows = 2
 
   # notify_fail.
