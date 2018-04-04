@@ -2,11 +2,13 @@ package notify
 
 import (
 	"fmt"
-	"log"
+	"io"
+	"strings"
 
+	"github.com/ernierasta/zorix/log"
 	"github.com/ernierasta/zorix/notify/mail"
 	"github.com/ernierasta/zorix/shared"
-	"github.com/valyala/fasttemplate"
+	"github.com/ernierasta/zorix/template"
 )
 
 // Manager sets up notifications and send them if needed
@@ -29,13 +31,13 @@ func NewManager(notifChan chan shared.NotifiedCheck, notifications []shared.Noti
 
 // Listen starts listening for notifications.
 func (m *Manager) Listen() {
-	log.Println("start waiting for notifications")
+	log.Debug("start waiting for notifications")
 	go func() {
 		for {
 			select {
 			case ncheck := <-m.notifChan:
 				ncheck.Check.Debug = append(ncheck.Check.Debug, "notify.Listen")
-				//log.Printf("we got notification! %+v", ncheck)
+				//log.Debug("we got notification! %+v", ncheck)
 
 				m.send(ncheck)
 			}
@@ -56,19 +58,19 @@ func (m *Manager) send(c shared.NotifiedCheck) {
 func (m *Manager) setSubjectAndText(c shared.Check, n *shared.Notification) *shared.Notification {
 	switch {
 	case c.Failure:
-		n.Subject = m.parseTemplate(n.SubjectFail, c, n.ID, "subject_fail")
-		n.Text = m.parseTemplate(n.TextFail, c, n.ID, "text_fail")
+		n.Subject = template.Parse(n.SubjectFail, c, n.ID, "subject_fail")
+		n.Text = template.Parse(n.TextFail, c, n.ID, "text_fail")
 	case c.Slow:
-		n.Subject = m.parseTemplate(n.SubjectSlow, c, n.ID, "subject_slow")
-		n.Text = m.parseTemplate(n.TextSlow, c, n.ID, "text_slow")
+		n.Subject = template.Parse(n.SubjectSlow, c, n.ID, "subject_slow")
+		n.Text = template.Parse(n.TextSlow, c, n.ID, "text_slow")
 	case c.RecoveryFailure:
-		n.Subject = m.parseTemplate(n.SubjectFailOK, c, n.ID, "subject_ok")
-		n.Text = m.parseTemplate(n.TextFailOK, c, n.ID, "text_ok")
+		n.Subject = template.Parse(n.SubjectFailOK, c, n.ID, "subject_ok")
+		n.Text = template.Parse(n.TextFailOK, c, n.ID, "text_ok")
 	case c.RecoverySlow:
-		n.Subject = m.parseTemplate(n.SubjectSlowOK, c, n.ID, "subject_ok")
-		n.Text = m.parseTemplate(n.TextSlowOK, c, n.ID, "text_ok")
+		n.Subject = template.Parse(n.SubjectSlowOK, c, n.ID, "subject_ok")
+		n.Text = template.Parse(n.TextSlowOK, c, n.ID, "text_ok")
 	default:
-		log.Printf("unknown notification, no known condition found, %+v", c)
+		log.Errorf("unknown notification, no known condition found, %+v", c)
 		n.Subject = "Unknown notification"
 		n.Text = fmt.Sprintf("Programming error, please send bug report containing"+
 			" folowing:\nCheck: %+v\n\n Notification(id: %s): %+v\n", c, n.ID, n)
@@ -82,16 +84,38 @@ func (m *Manager) dispatch(c shared.Check, n *shared.Notification) {
 	case "mail":
 		mail.Send(c, *n)
 	default:
-		log.Printf("unknown notification type: '%s'. Check config file.", n.Type)
+		log.Errorf("programming error, check is to late: unknown notification type: '%s'. Check config file.", n.Type)
 	}
 }
 
-func (m *Manager) parseTemplate(ts string, c shared.Check, nID, field string) string {
-
-	st, err := fasttemplate.NewTemplate(ts, "{", "}")
-	if err != nil {
-		log.Printf("error creating template from '%s' for notification ID: %s, err: %v", field, nID, err)
+func createParser(c shared.Check) func(w io.Writer, tag string) (int, error) {
+	return func(w io.Writer, tag string) (int, error) {
+		switch tag {
+		case "check":
+			return w.Write([]byte(c.Check))
+		case "params":
+			if len(c.Params) > 0 {
+				return w.Write([]byte(" " + strings.Trim(fmt.Sprint(c.Params), "[]")))
+			}
+			return w.Write([]byte(""))
+		case "timestamp":
+			return w.Write([]byte(c.Timestamp.Format("2.1.2006 15:04:05")))
+		case "responsecode":
+			return w.Write([]byte(fmt.Sprintf("%d", c.ReturnedCode)))
+		case "responsetime":
+			return w.Write([]byte(fmt.Sprintf("%d", c.ReturnedTime)))
+		case "expectedcode":
+			return w.Write([]byte(fmt.Sprintf("%d", c.ExpectedCode)))
+		case "expectedtime":
+			return w.Write([]byte(fmt.Sprintf("%d", c.ExpectedTime)))
+		case "error":
+			if c.Error != nil {
+				return w.Write([]byte(c.Error.Error()))
+			}
+			return w.Write([]byte(""))
+			//TODO: add all fields from shared.Check
+		default:
+			return w.Write([]byte(fmt.Sprintf("[unknown tag '%s']", tag)))
+		}
 	}
-	s := st.ExecuteFuncString(createParser(c))
-	return s
 }

@@ -1,28 +1,32 @@
 package main
 
 import (
-	"log"
 	"time"
 
-	"github.com/bcicen/grmon/agent"
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/ernierasta/zorix/check"
 	"github.com/ernierasta/zorix/config"
+	"github.com/ernierasta/zorix/log"
 	"github.com/ernierasta/zorix/notify"
 	"github.com/ernierasta/zorix/processor"
 	"github.com/ernierasta/zorix/shared"
 )
 
 func main() {
-	log.Println("Starting ...")
 
-	grmon.Start()
-	log.Println("Started grmon")
+	go func() { log.Debug(http.ListenAndServe("localhost:6060", nil)) }()
 
 	c := config.New("config.toml")
 	err := c.Read()
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Set(c.Global.Loglevel, true)
+	log.Debug("Config loaded. Starting ...")
+
 	err = c.Validate()
 	if err != nil {
 		log.Fatal(err)
@@ -30,10 +34,10 @@ func main() {
 	c.Normalize()
 
 	//all results goes there
-	resultsChan := make(chan shared.Check, len(c.Checks))
-	notifChan := make(chan shared.NotifiedCheck, len(c.Checks))
+	resultsChan := make(chan shared.Check, len(c.Checks)*10)
+	notifChan := make(chan shared.NotifiedCheck, len(c.Checks)*10)
 
-	chm := check.NewManager(c.Checks, c.Workers, resultsChan)
+	chm := check.NewManager(c.Checks, c.Global.Workers, resultsChan)
 	proc := processor.New(resultsChan, notifChan, len(c.Checks), c.Notifications)
 	nm := notify.NewManager(notifChan, c.Notifications)
 

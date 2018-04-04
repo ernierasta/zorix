@@ -1,12 +1,25 @@
-package notify
+package template
 
 import (
 	"fmt"
 	"io"
 	"strings"
 
+	"github.com/ernierasta/zorix/log"
 	"github.com/ernierasta/zorix/shared"
+
+	"github.com/valyala/fasttemplate"
 )
+
+func Parse(ts string, c shared.Check, nID, field string) string {
+
+	st, err := fasttemplate.NewTemplate(ts, "{", "}")
+	if err != nil {
+		log.Errorf("error creating template from '%s' for notification ID: %s, err: %v", field, nID, err)
+	}
+	s := st.ExecuteFuncString(createParser(c))
+	return s
+}
 
 func createParser(c shared.Check) func(w io.Writer, tag string) (int, error) {
 	return func(w io.Writer, tag string) (int, error) {

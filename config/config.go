@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/ernierasta/zorix/shared"
 
@@ -14,6 +15,7 @@ const (
 	CheckExpectedCode = 200
 	CheckExpectedTime = 1000
 	CheckAllowedSlows = 3
+	CheckAllowedFails = 1
 
 	NotifType        = "mail"
 	NotifSubjectFail = "{check}{params} problem"
@@ -22,8 +24,15 @@ const (
 	NotifTextSlow    = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse time: {responsetime}\nExpected time: {expectedtime}"
 )
 
+var (
+	// notifTypes is slice of available notifications. Empty is also ok, will be normalized.
+	// Add new type here!
+	notifTypes = []string{"", "mail"}
+)
+
+// Config represents whole configuration file parsed to stuct.
 type Config struct {
-	Workers       int
+	Global        shared.Global
 	Notifications []shared.Notification `toml:"notify"`
 	Checks        []shared.Check        `toml:"check"`
 	file          string
@@ -68,6 +77,9 @@ func (c *Config) validateNotifications() error {
 		if notif.ID == "" {
 			return fmt.Errorf("config.validate: empty 'ID' for %d. notification. This field is mandatory, fix config file", i)
 		}
+		if !found(notif.Type, notifTypes) {
+			return fmt.Errorf("config.validate: unknown Type for %d. notification. Check config file", i)
+		}
 		if notif.Server == "" {
 			return fmt.Errorf("config.validate: empty 'server' for %d. notification. This field is mandatory, fix config file", i)
 		}
@@ -83,7 +95,6 @@ func (c *Config) validateNotifications() error {
 
 	}
 	return nil
-
 }
 
 // Normalize will fill in default values if missing in config
@@ -107,7 +118,10 @@ func (c *Config) normalizeChecks() {
 		if check.ExpectedTime == 0 {
 			c.Checks[i].ExpectedTime = CheckExpectedTime
 		}
-		if check.AllowedSlows == 0 {
+		if check.AllowedFails < 1 {
+			c.Checks[i].AllowedFails = CheckAllowedFails
+		}
+		if check.AllowedSlows < 1 {
 			c.Checks[i].AllowedSlows = CheckAllowedSlows
 		}
 		if check.NotifyFail == nil {
@@ -149,16 +163,26 @@ func (c *Config) normalizeNotifications() {
 		}
 		if notif.RepeatFail == nil {
 			c.Notifications[i].RepeatFail = []shared.Duration{
-				shared.Duration{Duration: 60},
-				shared.Duration{Duration: 300},
-				shared.Duration{Duration: 600},
+				shared.Duration{Duration: 1 * time.Minute},
+				shared.Duration{Duration: 5 * time.Minute},
+				shared.Duration{Duration: 10 * time.Minute},
 			}
 		}
 		if notif.RepeatSlow == nil {
 			c.Notifications[i].RepeatSlow = []shared.Duration{
-				shared.Duration{Duration: 300},
+				shared.Duration{Duration: 5 * time.Minute},
 				shared.Duration{Duration: 0},
 			}
 		}
 	}
+}
+
+func found(s string, ss []string) bool {
+	found := false
+	for _, t := range ss {
+		if s == t {
+			found = true
+		}
+	}
+	return found
 }

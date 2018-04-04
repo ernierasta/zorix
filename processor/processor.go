@@ -5,10 +5,10 @@ package processor
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
+	"github.com/ernierasta/zorix/log"
 	"github.com/ernierasta/zorix/shared"
 )
 
@@ -42,17 +42,15 @@ func New(resultChan chan shared.Check, notifChan chan shared.NotifiedCheck, chec
 
 // Listen starts listening for notifications.
 func (p *Processor) Listen() {
-	log.Println("start waiting for results")
+	log.Debug("processor.Listen:", "start waiting for results")
 	go func() {
 		for {
 			select {
-			case res := <-p.resultChan:
-				res.Debug = append(res.Debug, "processor.Listen")
-				res = p.analyze(res)
-				p.updateCheckResult(res)
-				log.Printf("%v", res.ReturnedTime)
-				p.notify(res.ID)
-
+			case c := <-p.resultChan:
+				c = p.analyze(c)
+				p.updateCheckResult(c)
+				log.Debugf("processor.Listen: analyzed: %s(%d), code(time): %d(%d), f: %d(%d) s: %d(%d)", c.Check, c.ID, c.ReturnedCode, c.ReturnedTime, p.checks[c.ID].Failed, c.AllowedFails, p.checks[c.ID].Slowdowns, c.AllowedSlows)
+				p.notify(c.ID)
 			}
 
 		}
@@ -89,9 +87,6 @@ func (p *Processor) analyze(r shared.Check) shared.Check {
 // It will increment fail or slowdown counter if needed.
 func (p *Processor) updateCheckResult(r shared.Check) {
 	// if this check failed, add amount of failures to check data
-
-	r.Debug = append(r.Debug, "processor.updateCheckResult")
-
 	if r.Failed == 1 {
 		if prevResult, ok := p.checks[r.ID]; ok {
 			r.Failed = prevResult.Failed + 1
@@ -138,12 +133,14 @@ func (p *Processor) updateCheckResult(r shared.Check) {
 // those messages are sent always only once for given Check.
 func (p *Processor) notify(id int) {
 
-	p.checks[id].Debug = append(p.checks[id].Debug, "processor.notify")
+	log.Debugf("processor.notify: staring for %d", id)
 
 	if p.checks[id].NotifyFail != nil {
 		if p.checks[id].Failed == p.checks[id].AllowedFails && p.checks[id].Failed != 0 {
+			log.Debugf("p.notify: f == allowed & not 0, %d sent to generator", id)
 			p.notifyGenerator(id, false)
 		} else if p.checks[id].RecoveryFailure {
+			log.Debugf("p.notify: recovery == true, %d sent to generator", id)
 			p.notifyGenerator(id, true)
 		}
 	}
@@ -161,15 +158,13 @@ func (p *Processor) notify(id int) {
 // (f.e: mail, jabber, ...)
 func (p *Processor) notifyGenerator(cID int, isRecovery bool) {
 
-	p.checks[cID].Debug = append(p.checks[cID].Debug, "processor.notifyGenerator")
-
 	source := []string{}
 	if p.checks[cID].Failure || p.checks[cID].RecoveryFailure {
 		source = p.checks[cID].NotifyFail
 	} else if p.checks[cID].Slow || p.checks[cID].RecoverySlow {
 		source = p.checks[cID].NotifySlow
 	} else {
-		log.Println("processor.notifyGenerator: ERROR - unknown notify type (not fail or slow)")
+		log.Errorf("processor.notifyGenerator: unknown failure type (not Fail or Slow)")
 	}
 
 	for _, nID := range source {
@@ -183,11 +178,15 @@ func (p *Processor) notifyGenerator(cID int, isRecovery bool) {
 
 		cnID := fmt.Sprintf("%d%s", cID, nID) // make unique ID string for this notification
 		if isRecovery {
-			p.recoveryChans[cnID] <- true // every Check's notification has uniq quit channel
+			// if recovery is BEFORE creating goroutine, it will stuck, send only if channel created = goroutine exists
+			if _, ok := p.recoveryChans[cnID]; ok {
+				p.recoveryChans[cnID] <- true // every Check's notification has uniq quit channel
+				log.Debugf("processor.notifyGenerator: recovery message for %d (notification: %s) sent to channel: recoveryChans[%s]", cID, nID, cnID)
+			}
 		} else {
 			p.notifChan <- shared.NotifiedCheck{Check: *p.checks[cID], NotificationID: nID} // send first notification directly
 			p.recoveryChans[cnID] = make(chan bool, 1)
-			log.Println("go notificationTimer for ", cID, "notif: ", nID)
+			log.Debugf("processor.notifyGenerator: start go notificationTimer with recoveryChans[%s] for %d (notification: %s)", cnID, cID, nID)
 			go p.notificationTimer(cID, schedule, p.notifications[nID].ID, p.notifChan, p.recoveryChans[cnID])
 		}
 	}
@@ -216,26 +215,24 @@ func (p *Processor) notificationTimer(cID int, schedule []shared.Duration, nID s
 			}
 		}
 		cnt++
-		log.Println("starting inner for loop for interval: ", interval)
+		log.Debug("starting inner for loop for interval: ", interval)
 		for {
 			select {
 			case <-recovery:
 				p.mutex.Lock()
-				p.checks[cID].Debug = append(p.checks[cID].Debug, "processor.notificationTimer")
 				notifChan <- shared.NotifiedCheck{Check: *p.checks[cID], NotificationID: nID}
 				timer.Stop()
 				p.mutex.Unlock()
+				log.Debugf("notificationTimer: recovery message received for %d (notification: %s)", cID, nID)
 				return
 			default:
 				if runTimer {
 					timer = time.NewTimer(interval.Duration)
 
 					go func() { // we need to be able to cancel timer if recovery came
-						log.Println("start go timer subroutine")
 						runTimer = false
 						<-timer.C
 						p.mutex.Lock()
-						p.checks[cID].Debug = append(p.checks[cID].Debug, "processor.notificationTimer")
 						notifChan <- shared.NotifiedCheck{Check: *p.checks[cID], NotificationID: nID}
 						p.mutex.Unlock()
 						sent = true
@@ -244,7 +241,8 @@ func (p *Processor) notificationTimer(cID int, schedule []shared.Duration, nID s
 				}
 			}
 			if sent {
-				log.Println("breaking from inner for loop")
+				log.Debugf("notificationTimer: sent problem notification for %d (notification: %s)", cID, nID)
+				log.Debug("notificationTimer: breaking from inner for loop")
 				break
 			}
 			time.Sleep(1 * time.Second)

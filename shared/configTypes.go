@@ -4,6 +4,19 @@ import "time"
 
 //TODO: add nice comments to every struct field
 
+type Global struct {
+	Workers             int
+	Loglevel            string
+	NotifySubjectFail   string `toml:"notify_subject_fail"`
+	NotifySubjectSlow   string `toml:"notify_subject_slow"`
+	NotifySubjectFailOK string `toml:"notify_subject_fail_ok"`
+	NotifySubjectSlowOK string `toml:"notify_subject_slow_ok"`
+	NotifyTextFail      string `toml:"notify_text_fail"`
+	NotifyTextSlow      string `toml:"notify_text_slow"`
+	NotifyTextFailOK    string `toml:"notify_text_fail_ok"`
+	NotifyTextSlowOK    string `toml:"notify_text_slow_ok"`
+}
+
 // Check type represents all check attributes
 type Check struct {
 	ID           int
