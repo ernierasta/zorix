@@ -17,11 +17,15 @@ const (
 	CheckAllowedSlows = 3
 	CheckAllowedFails = 1
 
-	NotifType        = "mail"
-	NotifSubjectFail = "{check}{params} problem"
-	NotifSubjectSlow = "{check}{params} slow"
-	NotifTextFail    = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\nError: {error}\n"
-	NotifTextSlow    = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse time: {responsetime}\nExpected time: {expectedtime}"
+	NotifyType          = "mail"
+	NotifySubjectFail   = "{check}{params} problem"
+	NotifySubjectSlow   = "{check}{params} slow"
+	NotifySubjectFailOK = "{check}{params} ok"
+	NotifySubjectSlowOK = "{check}{params} ok"
+	NotifyTextFail      = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\nError: {error}\n"
+	NotifyTextSlow      = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
+	NotifyTextFailOK    = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\n"
+	NotifyTextSlowOK    = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
 )
 
 var (
@@ -144,23 +148,20 @@ func (c *Config) getAllNotificationIDs() []string {
 func (c *Config) normalizeNotifications() {
 	for i, notif := range c.Notifications {
 		if notif.Type == "" {
-			c.Notifications[i].Type = NotifType
+			c.Notifications[i].Type = NotifyType
 		}
 		if notif.From == "" {
 			c.Notifications[i].From = notif.User
 		}
-		if notif.SubjectFail == "" {
-			c.Notifications[i].SubjectFail = NotifSubjectFail
-		}
-		if notif.SubjectSlow == "" {
-			c.Notifications[i].SubjectSlow = NotifSubjectSlow
-		}
-		if notif.TextFail == "" {
-			c.Notifications[i].TextFail = NotifTextFail
-		}
-		if notif.TextSlow == "" {
-			c.Notifications[i].TextSlow = NotifTextSlow
-		}
+		c.Notifications[i].SubjectFail = setTemplate(notif.SubjectFail, c.Global.NotifySubjectFail, NotifySubjectFail)
+		c.Notifications[i].SubjectFailOK = setTemplate(notif.SubjectFailOK, c.Global.NotifySubjectFailOK, NotifySubjectFailOK)
+		c.Notifications[i].TextFail = setTemplate(notif.TextFail, c.Global.NotifyTextFail, NotifyTextFail)
+		c.Notifications[i].TextFailOK = setTemplate(notif.TextFailOK, c.Global.NotifyTextFailOK, NotifyTextFailOK)
+		c.Notifications[i].SubjectSlow = setTemplate(notif.SubjectSlow, c.Global.NotifySubjectSlow, NotifySubjectSlow)
+		c.Notifications[i].SubjectSlowOK = setTemplate(notif.SubjectSlowOK, c.Global.NotifySubjectSlowOK, NotifySubjectSlowOK)
+		c.Notifications[i].TextSlow = setTemplate(notif.TextSlow, c.Global.NotifyTextSlow, NotifyTextSlow)
+		c.Notifications[i].TextSlowOK = setTemplate(notif.TextSlowOK, c.Global.NotifyTextSlowOK, NotifyTextSlowOK)
+
 		if notif.RepeatFail == nil {
 			c.Notifications[i].RepeatFail = []shared.Duration{
 				shared.Duration{Duration: 1 * time.Minute},
@@ -175,6 +176,16 @@ func (c *Config) normalizeNotifications() {
 			}
 		}
 	}
+}
+
+func setTemplate(t, glob, def string) string {
+	if t == "" {
+		if glob == "" {
+			return glob
+		}
+		return def
+	}
+	return t
 }
 
 func found(s string, ss []string) bool {
