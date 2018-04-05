@@ -5,8 +5,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/ernierasta/zorix/log"
 	"github.com/ernierasta/zorix/shared"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/valyala/fasttemplate"
 )

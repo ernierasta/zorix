@@ -10,9 +10,7 @@
   # loglevel.
   # default: "debug"
   # Set log level. Available:
-  # debug
-  # warn
-  # error
+  # debug, info, warn, error, fatal, panic
   loglevel = "warn"
 
   # Notification templates, you can overwrite them inside notify sections.

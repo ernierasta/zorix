@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ernierasta/zorix/log"
 	"github.com/ernierasta/zorix/shared"
+	log "github.com/sirupsen/logrus"
 )
 
 // Processor analyze and store check results.
@@ -42,14 +42,14 @@ func New(resultChan chan shared.Check, notifChan chan shared.NotifiedCheck, chec
 
 // Listen starts listening for notifications.
 func (p *Processor) Listen() {
-	log.Debug("processor.Listen:", "start waiting for results")
+	log.Debug("p.Listen:", "start waiting for results ...")
 	go func() {
 		for {
 			select {
 			case c := <-p.resultChan:
 				c = p.analyze(c)
 				p.updateCheckResult(c)
-				log.Debugf("processor.Listen: analyzed: %s(%d), code(time): %d(%d), f: %d(%d) s: %d(%d)", c.Check, c.ID, c.ReturnedCode, c.ReturnedTime, p.checks[c.ID].Failed, c.AllowedFails, p.checks[c.ID].Slowdowns, c.AllowedSlows)
+				log.WithFields(log.Fields{"id": c.ID, "check": c.Check, "code:": c.ReturnedCode, "time": c.ReturnedTime, "fails": p.checks[c.ID].Failed, "allowed_fails": c.AllowedFails, "slows": p.checks[c.ID].Slowdowns, "allowed_slows": c.AllowedSlows}).Debugf("p.Listen: new result")
 				p.notify(c.ID)
 			}
 
@@ -58,8 +58,6 @@ func (p *Processor) Listen() {
 }
 
 func (p *Processor) analyze(r shared.Check) shared.Check {
-
-	r.Debug = append(r.Debug, "processor.analyze")
 
 	if r.Error != nil {
 		r.Failed = 1
@@ -133,8 +131,6 @@ func (p *Processor) updateCheckResult(r shared.Check) {
 // those messages are sent always only once for given Check.
 func (p *Processor) notify(id int) {
 
-	log.Debugf("processor.notify: staring for %d", id)
-
 	if p.checks[id].NotifyFail != nil {
 		if p.checks[id].Failed == p.checks[id].AllowedFails && p.checks[id].Failed != 0 {
 			log.Debugf("p.notify: f == allowed & not 0, %d sent to generator", id)
@@ -181,12 +177,12 @@ func (p *Processor) notifyGenerator(cID int, isRecovery bool) {
 			// if recovery is BEFORE creating goroutine, it will stuck, send only if channel created = goroutine exists
 			if _, ok := p.recoveryChans[cnID]; ok {
 				p.recoveryChans[cnID] <- true // every Check's notification has uniq quit channel
-				log.Debugf("processor.notifyGenerator: recovery message for %d (notification: %s) sent to channel: recoveryChans[%s]", cID, nID, cnID)
+				log.Debugf("p.notifyGenerator: recovery message for %d (notification: %s) sent to channel: recoveryChans[%s]", cID, nID, cnID)
 			}
 		} else {
 			p.notifChan <- shared.NotifiedCheck{Check: *p.checks[cID], NotificationID: nID} // send first notification directly
 			p.recoveryChans[cnID] = make(chan bool, 1)
-			log.Debugf("processor.notifyGenerator: start go notificationTimer with recoveryChans[%s] for %d (notification: %s)", cnID, cID, nID)
+			log.Debugf("p.notifyGenerator: start go notificationTimer with recoveryChans[%s] for %d (notification: %s)", cnID, cID, nID)
 			go p.notificationTimer(cID, schedule, p.notifications[nID].ID, p.notifChan, p.recoveryChans[cnID])
 		}
 	}

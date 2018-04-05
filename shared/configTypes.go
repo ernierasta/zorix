@@ -47,7 +47,6 @@ type ResultData struct {
 	Slow            bool
 	RecoveryFailure bool
 	RecoverySlow    bool
-	Debug           []string
 }
 
 // Notification type represent all notification attributes

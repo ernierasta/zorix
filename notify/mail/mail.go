@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log"
 	"net/mail"
 	"net/smtp"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ernierasta/zorix/shared"
+	log "github.com/sirupsen/logrus"
 )
 
 // Send sends mail via smtp.
@@ -39,13 +39,27 @@ func Send(c shared.Check, n shared.Notification) {
 
 	message += "\r\n" + base64.StdEncoding.EncodeToString([]byte(n.Text))
 
-	SendMail(n.Server, n.Port, auth, false, n.From, n.To, []byte(message))
+	err := SendMail(n.Server, n.Port, auth, false, n.From, n.To, []byte(message))
+
+	maillog := log.WithFields(log.Fields{
+		"user":    n.User,
+		"pass":    n.Pass[0:3],
+		"server":  n.Server,
+		"port":    n.Port,
+		"to":      recipients,
+		"Subject": header["Subject"]})
+
+	if err != nil {
+		maillog.Error("error sending mail, err:", err)
+	} else {
+		maillog.Debug("mail sent")
+	}
+
 }
 
 func encodeRFC2047(String string) string {
 	// use mail's rfc2047 to encode any string
 	addr := mail.Address{String, ""}
-	log.Println(addr.String())
 	return strings.Trim(addr.String(), " <@>")
 }
 

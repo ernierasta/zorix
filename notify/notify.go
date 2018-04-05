@@ -2,13 +2,12 @@ package notify
 
 import (
 	"fmt"
-	"io"
-	"strings"
 
-	"github.com/ernierasta/zorix/log"
 	"github.com/ernierasta/zorix/notify/mail"
 	"github.com/ernierasta/zorix/shared"
 	"github.com/ernierasta/zorix/template"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Manager sets up notifications and send them if needed
@@ -36,9 +35,7 @@ func (m *Manager) Listen() {
 		for {
 			select {
 			case ncheck := <-m.notifChan:
-				ncheck.Check.Debug = append(ncheck.Check.Debug, "notify.Listen")
 				//log.Debug("we got notification! %+v", ncheck)
-
 				m.send(ncheck)
 			}
 
@@ -46,15 +43,16 @@ func (m *Manager) Listen() {
 	}()
 }
 
-// sendAll takes slice of defined notificiations for this Check
-// and runs them all.
-// TODO: remove this, from now, every notificion will come from processor, for every type
-func (m *Manager) send(c shared.NotifiedCheck) {
-	n := m.notifications[c.NotificationID]
-	n = m.setSubjectAndText(c.Check, n)
-	m.dispatch(c.Check, n)
+// send determines notification and calls methods that sets subject and title
+// and sends Check to dispatch method.
+func (m *Manager) send(nc shared.NotifiedCheck) {
+	n := m.notifications[nc.NotificationID]
+	n = m.setSubjectAndText(nc.Check, n)
+	m.dispatch(nc.Check, n)
 }
 
+// setSubjectAndText determines notification type (fail, slow, failOK, slowOK), gets parsed subject
+// and text and sets them in returned Notification struct.
 func (m *Manager) setSubjectAndText(c shared.Check, n *shared.Notification) *shared.Notification {
 	switch {
 	case c.Failure:
@@ -79,43 +77,12 @@ func (m *Manager) setSubjectAndText(c shared.Check, n *shared.Notification) *sha
 
 }
 
+// dispach determines which plugin should be called
 func (m *Manager) dispatch(c shared.Check, n *shared.Notification) {
 	switch n.Type {
 	case "mail":
 		mail.Send(c, *n)
 	default:
 		log.Errorf("programming error, check is to late: unknown notification type: '%s'. Check config file.", n.Type)
-	}
-}
-
-func createParser(c shared.Check) func(w io.Writer, tag string) (int, error) {
-	return func(w io.Writer, tag string) (int, error) {
-		switch tag {
-		case "check":
-			return w.Write([]byte(c.Check))
-		case "params":
-			if len(c.Params) > 0 {
-				return w.Write([]byte(" " + strings.Trim(fmt.Sprint(c.Params), "[]")))
-			}
-			return w.Write([]byte(""))
-		case "timestamp":
-			return w.Write([]byte(c.Timestamp.Format("2.1.2006 15:04:05")))
-		case "responsecode":
-			return w.Write([]byte(fmt.Sprintf("%d", c.ReturnedCode)))
-		case "responsetime":
-			return w.Write([]byte(fmt.Sprintf("%d", c.ReturnedTime)))
-		case "expectedcode":
-			return w.Write([]byte(fmt.Sprintf("%d", c.ExpectedCode)))
-		case "expectedtime":
-			return w.Write([]byte(fmt.Sprintf("%d", c.ExpectedTime)))
-		case "error":
-			if c.Error != nil {
-				return w.Write([]byte(c.Error.Error()))
-			}
-			return w.Write([]byte(""))
-			//TODO: add all fields from shared.Check
-		default:
-			return w.Write([]byte(fmt.Sprintf("[unknown tag '%s']", tag)))
-		}
 	}
 }

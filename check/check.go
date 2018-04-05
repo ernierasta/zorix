@@ -1,13 +1,13 @@
 package check
 
 import (
-	"log"
 	"strconv"
 	"time"
 
 	"github.com/ernierasta/zorix/check/cmd"
 	"github.com/ernierasta/zorix/check/web"
 	"github.com/ernierasta/zorix/shared"
+	log "github.com/sirupsen/logrus"
 )
 
 // Manager registers all availabile checks and lounches them
@@ -87,7 +87,6 @@ func (cm *Manager) Run() {
 	for name, wrk := range cm.requestedWorkers {
 		for w := 1; w <= cm.workers && w <= wrk.Checks; w++ {
 			workerName := name + strconv.Itoa(w)
-			log.Printf("Starting %s", workerName)
 			go cm.startWorker(workerName, wrk.Worker, wrk.Chan, cm.resultsChan)
 		}
 	}
@@ -111,7 +110,7 @@ func (cm *Manager) createTicker(c shared.Check, checksChan chan shared.Check) {
 // startWorker will realize actual check. This method should run as gorutine.
 // Method will call specific worker implementation and send data to resultsChan.
 func (cm *Manager) startWorker(id string, worker shared.Worker, input, output chan shared.Check) {
-	log.Printf("Worker id: %s, starting some work ...", id)
+	log.WithFields(log.Fields{"worker_id": id}).Info("starting some work ...")
 	for c := range input {
 		code, time, err := worker.Send(c)
 		c.ReturnedCode = code
@@ -119,7 +118,6 @@ func (cm *Manager) startWorker(id string, worker shared.Worker, input, output ch
 		if err != nil {
 			c.Error = err
 		}
-		c.Debug = append(c.Debug, "check.startWorker id: "+id)
 		output <- c
 	}
 }
