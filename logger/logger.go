@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"io/ioutil"
 	"log/syslog"
 	"os"
 
@@ -9,7 +10,8 @@ import (
 )
 
 // Set logger configures logrus.
-// dest - empty (log to stdout), "syslog" (log to syslog), any other value is treated as
+// dest - empty (log to stdout), "syslog" (log to syslog), any other value is treated as filename to log to.
+// For syslog we set LOG_INFO level for "debug" level, becouse some syslog setting would ignore LOG_DEBUG entries.
 func Set(dest string, level string) {
 
 	var lvl log.Level
@@ -17,7 +19,7 @@ func Set(dest string, level string) {
 	switch level {
 	case "", "debug":
 		lvl = log.DebugLevel
-		slvl = syslog.LOG_DEBUG
+		slvl = syslog.LOG_INFO
 	case "info":
 		lvl = log.InfoLevel
 		slvl = syslog.LOG_INFO
@@ -36,18 +38,21 @@ func Set(dest string, level string) {
 	default:
 		log.Fatal("unknown loglevel, check config file")
 	}
+
 	log.SetLevel(lvl)
 
 	switch dest {
 	case "":
 		log.SetOutput(os.Stdout)
 	case "syslog":
-		hook, err := logrus_syslog.NewSyslogHook("udp", "localhost:514", slvl, "")
+		hook, err := logrus_syslog.NewSyslogHook("", "", slvl, "zorix")
 		if err != nil {
-			log.Error("unable to connect to local syslog daemon")
-			log.SetOutput(os.Stdout)
+			log.SetOutput(os.Stdout) // use stdout as failback
+			log.Println("unable to connect to local syslog daemon, logging to stdout")
 		} else {
 			log.AddHook(hook)
+			log.SetFormatter(&log.TextFormatter{DisableColors: true, DisableTimestamp: true})
+			log.SetOutput(ioutil.Discard) // do not output to stdout
 		}
 	default:
 		logf, err := os.OpenFile(dest, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)

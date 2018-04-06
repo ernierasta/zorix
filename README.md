@@ -1,5 +1,7 @@
 # Zorix
 
+_Warning! Currently major changes are happening, wait for first release!_
+
 Remote server/service monitoring and alerting system deployed in 5 minutes. 
 No agents, no dependencies, one binary.
 
@@ -26,7 +28,7 @@ But do not worry, tests will come, adding tests will be good opportunity to refa
 - [ ] documentation,
 - [ ] tests (!),
 - [ ] installation instructions,
-- [ ] implement flags for test notification, config and log,
+- [x] implement flags for test notification, config and log,
 - [ ] init scripts for: sysVinit (for legacy installations), runit, OpenRC and yes ... systemd. ;-)
 -  [ ] Windows specific info/functions (will it currently run?):
   - [ ] run as service,
@@ -39,6 +41,7 @@ But do not worry, tests will come, adding tests will be good opportunity to refa
 - [ ] check code for any panics, allow them only on process start, but not when it is running (should be ok already),
 - [ ] add check types: ping and other helper types to make config clearer,
 - [ ] port testing,
+- [ ] normalize logging,
 - [ ] database storage: influxdb, maybe more if needed,
 - [ ] document db usage, grafana integration,
 - [ ] implement [rtop](https://github.com/rapidloop/rtop) funkcionality.
@@ -65,3 +68,6 @@ I found some interesting projects (some of them mentioned already), but at the e
 Yes, that is what I wanted. "Zori" is something like my trademark and at the past adding "x" at the end of program name makes application instantly cool (like nowadays "d"?), so `zorix` it be!
 Reference to `zabbix` is intentional despite the fact, that `zorix` is incomparably simpler, less powerful and has completely different design.
 
+### License
+
+This software is dual licensed, GPL v3 with the exception for MagikINFO s.r.o., which is sponsoring development and let me release it as open source!
