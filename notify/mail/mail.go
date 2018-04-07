@@ -52,15 +52,16 @@ func (m *Mail) Send(c shared.Check, n shared.NotifConfig) {
 	}
 
 	message += "\r\n" + base64.StdEncoding.EncodeToString([]byte(n.Text))
-	err := sendMail(n.Server, n.Port, auth, false, n.From, n.To, []byte(message))
+	err := sendMail(n.Server, n.Port, auth, n.IgnoreCert, n.From, n.To, []byte(message))
 
 	maillog := log.WithFields(log.Fields{
-		"user":    n.User,
-		"pass":    n.Pass[0:3],
-		"server":  n.Server,
-		"port":    n.Port,
-		"to":      recipients,
-		"Subject": header["Subject"]})
+		"user":       n.User,
+		"pass":       n.Pass[0:3],
+		"server":     n.Server,
+		"port":       n.Port,
+		"ignorecert": n.IgnoreCert,
+		"to":         recipients,
+		"Subject":    header["Subject"]})
 
 	if err != nil {
 		maillog.Error("error sending mail, err:", err)
@@ -99,6 +100,8 @@ func encodeRFC2047(s string) string {
 //
 // sendMail ripped from net/smtp package, added ability to send mails
 // via TLS (port: 465).
+// fixed potential MITM atack
+// added option to ignore certificate
 func sendMail(host string, port int, a smtp.Auth, ignoreCert bool, from string, to []string, msg []byte) error {
 	if err := validateLine(from); err != nil {
 		return err
@@ -143,7 +146,9 @@ func sendMail(host string, port int, a smtp.Auth, ignoreCert bool, from string, 
 	}
 	if ok, _ := c.Extension("STARTTLS"); ok {
 		config := &tls.Config{
-			ServerName: host}
+			InsecureSkipVerify: ignoreCert,
+			ServerName:         host,
+		}
 		if err = c.StartTLS(config); err != nil {
 			return err
 		}
@@ -152,7 +157,6 @@ func sendMail(host string, port int, a smtp.Auth, ignoreCert bool, from string, 
 		if ok, _ := c.Extension("AUTH"); !ok {
 			return errors.New("smtp: server doesn't support AUTH")
 		}
-		log.Debug("check extension done")
 		if err = c.Auth(a); err != nil {
 			return err
 		}

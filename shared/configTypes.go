@@ -55,6 +55,7 @@ type NotifConfig struct {
 	Server        string
 	Port          int
 	User, Pass    string
+	IgnoreCert    bool `toml:"ignore_cert"`
 	From          string
 	To            []string
 	SubjectFail   string `toml:"subject_fail"`

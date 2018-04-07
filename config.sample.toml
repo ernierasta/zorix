@@ -64,6 +64,12 @@
   # Service port. For mail, we support TLS on 465 and STARTTLS on 587
   port = 587
 
+  # ignore_cert.
+  # default: false
+  # options: true/false
+  # Allows you to ignore wrong certificate on mail server.
+  ignore_cert = false
+
   # user, MANDATORY.
   # Username to authenticate with.
   user = "tester@magikinfo.cz"
