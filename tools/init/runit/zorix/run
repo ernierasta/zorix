@@ -1,0 +1,2 @@
+#!/bin/sh
+exec chpst -u zorix /usr/local/bin/zorix -c /etc/zorix/config.toml

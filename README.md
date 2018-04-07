@@ -29,7 +29,12 @@ But do not worry, tests will come, adding tests will be good opportunity to refa
 - [ ] tests (!),
 - [ ] installation instructions,
 - [x] implement flags for test notification, config and log,
-- [ ] init scripts for: sysVinit (for legacy installations), runit, OpenRC and yes ... systemd. ;-)
+- [x] init scripts for: sysVinit (for legacy installations), runit and yes ... systemd. ;-)
+- [ ] add OpenRC init, verify inits
+  - [x] runit: Void Linux
+  - [ ] openrc: Alpine Linux
+  - [ ] sysvinit: Debian
+  - [ ] systemd: Debian
 -  [ ] Windows specific info/functions (will it currently run?):
   - [ ] run as service,
   - [ ] hide cmd,

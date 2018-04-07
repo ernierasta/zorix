@@ -1,0 +1,12 @@
+[Unit]
+Description=Zorix monitoring system
+
+[Service]
+User=zorix
+Type=simple
+Restart=on-failure
+RestartSec=10
+ExecStart=/usr/local/bin/zorix -c /etc/zorix/config.toml -l syslog
+
+[Install]
+WantedBy=multi-user.target
