@@ -41,7 +41,7 @@ type ResultData struct {
 	Error           error
 	ReturnedTime    int64
 	Slowdowns       int
-	Failed          int
+	Fails           int
 	Timestamp       time.Time
 	Failure         bool
 	Slow            bool
@@ -49,8 +49,8 @@ type ResultData struct {
 	RecoverySlow    bool
 }
 
-// Notification type represent all notification attributes
-type Notification struct {
+// NotifConfig type represent all notification attributes
+type NotifConfig struct {
 	ID, Type      string
 	Server        string
 	Port          int

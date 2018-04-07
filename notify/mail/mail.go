@@ -15,10 +15,24 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type Mail struct{}
+
 // Send sends mail via smtp.
 // Supports multiple recepients, TLS (port 465)/StartTLS(ports 25,587, any other).
 // Mail should always valid (correctly encoded subject and body).
-func Send(c shared.Check, n shared.Notification) {
+func (m *Mail) Send(c shared.Check, n shared.NotifConfig) {
+	if (n.User != "" && n.Pass == "") ||
+		(n.Pass != "" && n.User == "") ||
+		n.Server == "" {
+		pass := ""
+		if len(n.Pass) > 3 {
+			pass = n.Pass[0:3] + "..."
+		} else {
+			pass = n.Pass // if someone has 3 leter pass, it deserves to be logged ;-)
+		}
+		log.WithFields(log.Fields{"u": n.User, "p": pass, "s": n.Server}).Error("One auth params is empty. MAIL NOT SENT. Fix config.")
+		return
+	}
 	auth := smtp.PlainAuth("", n.User, n.Pass, n.Server)
 
 	recipients := strings.Join(n.To, ", ")
@@ -38,8 +52,7 @@ func Send(c shared.Check, n shared.Notification) {
 	}
 
 	message += "\r\n" + base64.StdEncoding.EncodeToString([]byte(n.Text))
-
-	err := SendMail(n.Server, n.Port, auth, false, n.From, n.To, []byte(message))
+	err := sendMail(n.Server, n.Port, auth, false, n.From, n.To, []byte(message))
 
 	maillog := log.WithFields(log.Fields{
 		"user":    n.User,
@@ -57,13 +70,13 @@ func Send(c shared.Check, n shared.Notification) {
 
 }
 
-func encodeRFC2047(String string) string {
+func encodeRFC2047(s string) string {
 	// use mail's rfc2047 to encode any string
-	addr := mail.Address{String, ""}
+	addr := mail.Address{s, ""}
 	return strings.Trim(addr.String(), " <@>")
 }
 
-// SendMail connects to the server at addr, switches to TLS if
+// sendMail connects to the server at addr, switches to TLS if
 // possible, authenticates with the optional mechanism a if possible,
 // and then sends an email from address from, to addresses to, with
 // message msg.
@@ -83,7 +96,10 @@ func encodeRFC2047(String string) string {
 // attachments (see the mime/multipart package), or other mail
 // functionality. Higher-level packages exist outside of the standard
 // library.
-func SendMail(host string, port int, a smtp.Auth, ignoreCert bool, from string, to []string, msg []byte) error {
+//
+// sendMail ripped from net/smtp package, added ability to send mails
+// via TLS (port: 465).
+func sendMail(host string, port int, a smtp.Auth, ignoreCert bool, from string, to []string, msg []byte) error {
 	if err := validateLine(from); err != nil {
 		return err
 	}
@@ -133,10 +149,12 @@ func SendMail(host string, port int, a smtp.Auth, ignoreCert bool, from string, 
 		}
 	}
 	if a != nil {
-		if ok, _ := c.Extension("AUTH"); ok {
-			if err = c.Auth(a); err != nil {
-				return err
-			}
+		if ok, _ := c.Extension("AUTH"); !ok {
+			return errors.New("smtp: server doesn't support AUTH")
+		}
+		log.Debug("check extension done")
+		if err = c.Auth(a); err != nil {
+			return err
 		}
 	}
 	if err = c.Mail(from); err != nil {
@@ -173,47 +191,5 @@ func validateLine(line string) error {
 	if strings.ContainsAny(line, "\n\r") {
 		return errors.New("smtp: A line must not contain CR or LF")
 	}
-	return nil
-}
-
-func tlsSend(auth smtp.Auth, server, srvAndPort, from, recipients, message string, isIgnoreCert bool) error {
-
-	tlsconfig := &tls.Config{
-		InsecureSkipVerify: isIgnoreCert,
-		ServerName:         server,
-	}
-	conn, err := tls.Dial("tcp", srvAndPort, tlsconfig)
-	if err != nil {
-		return err
-	}
-	client, err := smtp.NewClient(conn, server)
-	err = client.Auth(auth)
-	if err != nil {
-		return err
-	}
-
-	if err = client.Mail(from); err != nil {
-		return err
-	}
-
-	if err = client.Rcpt(recipients); err != nil {
-		return err
-	}
-	w, err := client.Data()
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write([]byte(message))
-	if err != nil {
-		return err
-	}
-
-	err = w.Close()
-	if err != nil {
-		return err
-	}
-	client.Quit()
-
 	return nil
 }

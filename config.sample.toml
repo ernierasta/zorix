@@ -70,6 +70,8 @@
 
   # pass, MANDATORY.
   # User password.
+  # If pass is empty, but user given it will not attempt to send mail.
+  # Useful for development or testing.
   pass = "pass"
   
   # from.

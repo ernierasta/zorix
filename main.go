@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -29,6 +30,8 @@ func init() {
 
 func main() {
 
+	// temporary set logging, just to catch config file errors
+	logger.Set(logf, "warn")
 	c := config.New(conf)
 	err := c.Read()
 	if err != nil {
@@ -36,10 +39,6 @@ func main() {
 	}
 
 	logger.Set(logf, c.Global.Loglevel)
-
-	if err != nil {
-		log.Fatal("logging setup failed, err:", err)
-	}
 	log.Debug("Config loaded. Starting ...")
 
 	err = c.Validate()
@@ -55,6 +54,11 @@ func main() {
 	chm := check.NewManager(c.Checks, c.Global.Workers, resultsChan)
 	proc := processor.New(resultsChan, notifChan, len(c.Checks), c.Notifications)
 	nm := notify.NewManager(notifChan, c.Notifications)
+
+	if testf {
+		nm.TestAll()
+		os.Exit(0)
+	}
 
 	// start listening for results
 	proc.Listen()

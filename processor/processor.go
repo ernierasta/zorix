@@ -19,13 +19,13 @@ type Processor struct {
 	notifChan     chan shared.NotifiedCheck
 	recoveryChans map[string]chan bool
 	checks        map[int]*shared.Check
-	notifications map[string]*shared.Notification
+	notifications map[string]*shared.NotifConfig
 	mutex         *sync.Mutex
 }
 
 // New returns processor instance
-func New(resultChan chan shared.Check, notifChan chan shared.NotifiedCheck, checkAmmount int, notifications []shared.Notification) *Processor {
-	notes := make(map[string]*shared.Notification, len(notifications))
+func New(resultChan chan shared.Check, notifChan chan shared.NotifiedCheck, checkAmmount int, notifications []shared.NotifConfig) *Processor {
+	notes := make(map[string]*shared.NotifConfig, len(notifications))
 	for _, n := range notifications {
 		notes[n.ID] = &n
 	}
@@ -49,7 +49,7 @@ func (p *Processor) Listen() {
 			case c := <-p.resultChan:
 				c = p.analyze(c)
 				p.updateCheckResult(c)
-				log.WithFields(log.Fields{"id": c.ID, "check": c.Check, "code:": c.ReturnedCode, "time": c.ReturnedTime, "fails": p.checks[c.ID].Failed, "allowed_fails": c.AllowedFails, "slows": p.checks[c.ID].Slowdowns, "allowed_slows": c.AllowedSlows}).Debug("p.Listen: new result")
+				log.WithFields(log.Fields{"id": c.ID, "check": c.Check, "code:": c.ReturnedCode, "time": c.ReturnedTime, "fails": p.checks[c.ID].Fails, "allowed_fails": c.AllowedFails, "slows": p.checks[c.ID].Slowdowns, "allowed_slows": c.AllowedSlows}).Debug("p.Listen: new result")
 				p.notify(c.ID)
 			}
 
@@ -60,10 +60,10 @@ func (p *Processor) Listen() {
 func (p *Processor) analyze(r shared.Check) shared.Check {
 
 	if r.Error != nil {
-		r.Failed = 1
+		r.Fails = 1
 	}
 	if r.ReturnedCode != r.ExpectedCode {
-		r.Failed = 1
+		r.Fails = 1
 		if r.Error == nil {
 			r.Error = fmt.Errorf("wrong response code")
 
@@ -85,9 +85,9 @@ func (p *Processor) analyze(r shared.Check) shared.Check {
 // It will increment fail or slowdown counter if needed.
 func (p *Processor) updateCheckResult(r shared.Check) {
 	// if this check failed, add amount of failures to check data
-	if r.Failed == 1 {
+	if r.Fails == 1 {
 		if prevResult, ok := p.checks[r.ID]; ok {
-			r.Failed = prevResult.Failed + 1
+			r.Fails = prevResult.Fails + 1
 		}
 	}
 	if r.Slowdowns == 1 {
@@ -98,7 +98,7 @@ func (p *Processor) updateCheckResult(r shared.Check) {
 
 	// detect recovery situation
 	if prevResult, ok := p.checks[r.ID]; ok {
-		if r.Slowdowns == 0 && r.Failed == 0 {
+		if r.Slowdowns == 0 && r.Fails == 0 {
 			if prevResult.Failure {
 				r.RecoveryFailure = true
 				r.Timestamp = time.Now()
@@ -109,8 +109,8 @@ func (p *Processor) updateCheckResult(r shared.Check) {
 		}
 	}
 
-	// mark Check as Failed and add timestamp
-	if r.Failed >= r.AllowedFails {
+	// mark Check as Fails and add timestamp
+	if r.Fails >= r.AllowedFails {
 		r.Timestamp = time.Now()
 		r.Failure = true
 	}
@@ -132,7 +132,7 @@ func (p *Processor) updateCheckResult(r shared.Check) {
 func (p *Processor) notify(id int) {
 
 	if p.checks[id].NotifyFail != nil {
-		if p.checks[id].Failed == p.checks[id].AllowedFails && p.checks[id].Failed != 0 {
+		if p.checks[id].Fails == p.checks[id].AllowedFails && p.checks[id].Fails != 0 {
 			log.Debugf("p.notify: f == allowed & not 0, %d sent to generator", id)
 			p.notifyGenerator(id, false)
 		} else if p.checks[id].RecoveryFailure {
@@ -211,15 +211,16 @@ func (p *Processor) notificationTimer(cID int, schedule []shared.Duration, nID s
 			}
 		}
 		cnt++
-		log.Debug("starting inner for loop for interval: ", interval)
+		log.Debug("p.notificationTimer: starting inner for loop for interval: ", interval)
 		for {
 			select {
 			case <-recovery:
+				log.Debug("p.notificationTimer: sending recovery to channel")
 				p.mutex.Lock()
 				notifChan <- shared.NotifiedCheck{Check: *p.checks[cID], NotificationID: nID}
 				timer.Stop()
 				p.mutex.Unlock()
-				log.Debugf("notificationTimer: recovery message received for %d (notification: %s)", cID, nID)
+				log.Debugf("p.notificationTimer: recovery message received for %d (notification: %s)", cID, nID)
 				return
 			default:
 				if runTimer {
@@ -228,6 +229,7 @@ func (p *Processor) notificationTimer(cID int, schedule []shared.Duration, nID s
 					go func() { // we need to be able to cancel timer if recovery came
 						runTimer = false
 						<-timer.C
+						log.Debugf("p.notificationTimer: sending message %d(nID: %s) to notifChan", cID, nID)
 						p.mutex.Lock()
 						notifChan <- shared.NotifiedCheck{Check: *p.checks[cID], NotificationID: nID}
 						p.mutex.Unlock()

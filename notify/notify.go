@@ -10,15 +10,22 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// NotificationModules is a map.
+// string: name of notification module (f.e: mail, jabber, ...)
+// value: Notifier interface, in fact concrete implementation.
+var NotificationModules = map[string]shared.Notifier{
+	"mail": &mail.Mail{},
+} // TODO: do the same for checks
+
 // Manager sets up notifications and send them if needed
 type Manager struct {
 	notifChan     chan shared.NotifiedCheck
-	notifications map[string]*shared.Notification
+	notifications map[string]*shared.NotifConfig
 }
 
 // NewManager creates new instance of notification manager
-func NewManager(notifChan chan shared.NotifiedCheck, notifications []shared.Notification) *Manager {
-	notes := make(map[string]*shared.Notification, len(notifications))
+func NewManager(notifChan chan shared.NotifiedCheck, notifications []shared.NotifConfig) *Manager {
+	notes := make(map[string]*shared.NotifConfig, len(notifications))
 	for _, n := range notifications {
 		notes[n.ID] = &n
 	}
@@ -53,7 +60,7 @@ func (m *Manager) send(nc shared.NotifiedCheck) {
 
 // setSubjectAndText determines notification type (fail, slow, failOK, slowOK), gets parsed subject
 // and text and sets them in returned Notification struct.
-func (m *Manager) setSubjectAndText(c shared.Check, n *shared.Notification) *shared.Notification {
+func (m *Manager) setSubjectAndText(c shared.Check, n *shared.NotifConfig) *shared.NotifConfig {
 	switch {
 	case c.Failure:
 		n.Subject = template.Parse(n.SubjectFail, c, n.ID, "subject_fail")
@@ -78,11 +85,22 @@ func (m *Manager) setSubjectAndText(c shared.Check, n *shared.Notification) *sha
 }
 
 // dispach determines which plugin should be called
-func (m *Manager) dispatch(c shared.Check, n *shared.Notification) {
-	switch n.Type {
-	case "mail":
-		mail.Send(c, *n)
-	default:
+func (m *Manager) dispatch(c shared.Check, n *shared.NotifConfig) {
+
+	if nm, ok := NotificationModules[n.Type]; ok {
+		nm.Send(c, *n)
+	} else {
 		log.Errorf("programming error, check is to late: unknown notification type: '%s'. Check config file.", n.Type)
+	}
+}
+
+//TestAll sends test message to all configured notifications.
+func (m *Manager) TestAll() {
+	fc := shared.Check{}
+	for id, n := range m.notifications {
+		log.Infof("notify.TestAll: sending notification for %s type", id)
+		n.Subject = "Test notification from Zorix"
+		n.Text = "Hi comrade!\nIf you are reading this, all went good.\nWe are glad you want to give Zorix a try!\n\nWelcome in Zorix community.\n\n Yours Zorix"
+		m.dispatch(fc, n)
 	}
 }

@@ -37,8 +37,8 @@ var (
 // Config represents whole configuration file parsed to stuct.
 type Config struct {
 	Global        shared.Global
-	Notifications []shared.Notification `toml:"notify"`
-	Checks        []shared.Check        `toml:"check"`
+	Notifications []shared.NotifConfig `toml:"notify"`
+	Checks        []shared.Check       `toml:"check"`
 	file          string
 }
 
