@@ -29,20 +29,21 @@ But do not worry, tests will come, adding tests will be good opportunity to refa
 - [ ] tests (!),
 - [ ] installation instructions,
 - [x] implement flags for test notification, config and log,
-- [x] init scripts for: sysVinit (for legacy installations), runit and yes ... systemd. ;-)
-- [ ] add OpenRC init, verify inits
-  - [x] runit: Void Linux
-  - [ ] openrc: Alpine Linux
-  - [ ] sysvinit: Debian
-  - [ ] systemd: Debian
+- [x] init scripts for: sysVinit (for legacy installations), runit and yes ... systemd. ;-),
+- [ ] add OpenRC init, verify inits:
+  - [x] runit: Void Linux,
+  - [ ] openrc: Alpine Linux,
+  - [ ] sysvinit: Debian,
+  - [ ] systemd: Debian,
 -  [ ] Windows specific info/functions (will it currently run?):
-  - [ ] run as service,
-  - [ ] hide cmd,
-  - [ ] ping on Windows.
-- [ ] implement better API checking (inspired by [statusOK](https://github.com/sanathp/statusok)),
+   - [ ] run as service,
+   - [ ] hide cmd,
+   - [ ] ping on Windows.
+- [ ] implement better API checking (inspired by [statusOK](https://github.com/sanathp/statusok)):
+   - [ ] implement all bug raports from there (variables in config, redirection limits, json as body, self signed certs).
 - [ ] implement jabber (xmpp) notifications,
 - [ ] implement cmd notifications (you can use any command as alerter),
-- [ ] add [[global]] section to config, allow defining notification templates there,
+- [x] add [[global]] section to config, allow defining notification templates there,
 - [ ] check code for any panics, allow them only on process start, but not when it is running (should be ok already),
 - [ ] add check types: ping and other helper types to make config clearer,
 - [ ] port testing,

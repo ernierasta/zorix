@@ -13,6 +13,7 @@ import (
 // NotificationModules is a map.
 // string: name of notification module (f.e: mail, jabber, ...)
 // value: Notifier interface, in fact concrete implementation.
+// This is only place, where you add new modules.
 var NotificationModules = map[string]shared.Notifier{
 	"mail": &mail.Mail{},
 } // TODO: do the same for checks
@@ -42,7 +43,6 @@ func (m *Manager) Listen() {
 		for {
 			select {
 			case ncheck := <-m.notifChan:
-				//log.Debug("we got notification! %+v", ncheck)
 				m.send(ncheck)
 			}
 
@@ -101,6 +101,7 @@ func (m *Manager) TestAll() {
 		log.Infof("notify.TestAll: sending notification for %s type", id)
 		n.Subject = "Test notification from Zorix"
 		n.Text = "Hi comrade!\nIf you are reading this, all went good.\nWe are glad you want to give Zorix a try!\n\nWelcome in Zorix community.\n\n Yours Zorix"
+		fmt.Printf("Trying to send '%s', check if it arrived!\n", n.ID)
 		m.dispatch(fc, n)
 	}
 }
