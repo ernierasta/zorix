@@ -15,12 +15,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Mail implements Notifier interface.
 type Mail struct{}
 
 // Send sends mail via smtp.
 // Supports multiple recepients, TLS (port 465)/StartTLS(ports 25,587, any other).
 // Mail should always valid (correctly encoded subject and body).
-func (m *Mail) Send(c shared.Check, n shared.NotifConfig) {
+func (m *Mail) Send(c shared.CheckConfig, n shared.NotifConfig) {
 	if (n.User != "" && n.Pass == "") ||
 		(n.Pass != "" && n.User == "") ||
 		n.Server == "" {

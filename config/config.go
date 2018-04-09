@@ -10,7 +10,11 @@ import (
 )
 
 const (
+	Loglevel    = "warn"
+	HTTPTimeout = "60s"
+
 	CheckType         = "web"
+	CheckMethod       = "GET"
 	CheckRepeat       = "60s"
 	CheckExpectedCode = 200
 	CheckExpectedTime = 1000
@@ -38,7 +42,7 @@ var (
 type Config struct {
 	Global        shared.Global
 	Notifications []shared.NotifConfig `toml:"notify"`
-	Checks        []shared.Check       `toml:"check"`
+	Checks        []shared.CheckConfig `toml:"check"`
 	file          string
 }
 
@@ -58,11 +62,21 @@ func (c *Config) Read() error {
 
 // Validate will check if all necessary fields are given
 func (c *Config) Validate() error {
+	if err := c.validateGlobal(); err != nil {
+		return err
+	}
 	if err := c.validateChecks(); err != nil {
 		return err
 	}
-
 	return c.validateNotifications()
+}
+
+func (c *Config) validateGlobal() error {
+	if c.Global.Workers == 0 {
+		return fmt.Errorf("config.validate: [global] workers not defined (cur val: %d), fix config file", c.Global.Workers)
+	}
+
+	return nil
 }
 
 func (c *Config) validateChecks() error {
@@ -71,6 +85,17 @@ func (c *Config) validateChecks() error {
 		if check.Check == "" {
 			return fmt.Errorf("config.validate: empty 'check' for %d. check. This field is mandatory, fix config file", i)
 		}
+		if check.NotifyFail != nil {
+			if err := c.validateNotifyIDList(check.NotifyFail); err != nil {
+				return fmt.Errorf("config.validate: wrong notification in notify_fail for %d. check, err: %v. fix config file", i, err)
+			}
+		}
+		if check.NotifySlow != nil {
+			if err := c.validateNotifyIDList(check.NotifySlow); err != nil {
+				return fmt.Errorf("config.validate: wrong notification in notify_slow for %d. check, err: %v. fix config file", i, err)
+			}
+		}
+
 	}
 	return nil
 }
@@ -103,8 +128,18 @@ func (c *Config) validateNotifications() error {
 
 // Normalize will fill in default values if missing in config
 func (c *Config) Normalize() {
+	c.normalizeGlobal()
 	c.normalizeChecks()
 	c.normalizeNotifications()
+}
+
+func (c *Config) normalizeGlobal() {
+	if c.Global.Loglevel == "" {
+		c.Global.Loglevel = Loglevel
+	}
+	if c.Global.HTTPTimeout.Duration == 0 {
+		c.Global.HTTPTimeout.ParseDuration(HTTPTimeout)
+	}
 }
 
 func (c *Config) normalizeChecks() {
@@ -112,6 +147,9 @@ func (c *Config) normalizeChecks() {
 	for i, check := range c.Checks {
 		if check.Type == "" {
 			c.Checks[i].Type = CheckType
+		}
+		if check.Method == "" {
+			c.Checks[i].Method = CheckMethod
 		}
 		if check.Repeat.Duration == 0 {
 			c.Checks[i].Repeat.ParseDuration(CheckRepeat)
@@ -137,12 +175,24 @@ func (c *Config) normalizeChecks() {
 	}
 }
 
+// getAllNotificationIDs returns slice of all notification IDs.
 func (c *Config) getAllNotificationIDs() []string {
 	ids := []string{}
 	for _, notif := range c.Notifications {
 		ids = append(ids, notif.ID)
 	}
 	return ids
+}
+
+// validateNotifyIDList returns error if any notification on list
+// is not found in defined notifications.
+func (c *Config) validateNotifyIDList(ss []string) error {
+	for _, nID := range ss {
+		if !found(nID, c.getAllNotificationIDs()) {
+			return fmt.Errorf("notification %q is not defined", nID)
+		}
+	}
+	return nil
 }
 
 func (c *Config) normalizeNotifications() {
@@ -180,7 +230,7 @@ func (c *Config) normalizeNotifications() {
 
 func setTemplate(t, glob, def string) string {
 	if t == "" {
-		if glob == "" {
+		if glob != "" {
 			return glob
 		}
 		return def

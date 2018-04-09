@@ -3,7 +3,6 @@ package template
 import (
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/ernierasta/zorix/shared"
 	log "github.com/sirupsen/logrus"
@@ -11,7 +10,7 @@ import (
 	"github.com/valyala/fasttemplate"
 )
 
-func Parse(ts string, c shared.Check, nID, field string) string {
+func Parse(ts string, c shared.CheckConfig, nID, field string) string {
 
 	st, err := fasttemplate.NewTemplate(ts, "{", "}")
 	if err != nil {
@@ -21,16 +20,15 @@ func Parse(ts string, c shared.Check, nID, field string) string {
 	return s
 }
 
-func createParser(c shared.Check) func(w io.Writer, tag string) (int, error) {
+func createParser(c shared.CheckConfig) func(w io.Writer, tag string) (int, error) {
 	return func(w io.Writer, tag string) (int, error) {
 		switch tag {
 		case "check":
 			return w.Write([]byte(c.Check))
 		case "params":
-			if len(c.Params) > 0 {
-				return w.Write([]byte(" " + strings.Trim(fmt.Sprint(c.Params), "[]")))
-			}
-			return w.Write([]byte(""))
+			return w.Write(spaceIfVal(c.Params))
+		case "headers":
+			return w.Write(spaceIfVal(c.Headers))
 		case "timestamp":
 			return w.Write([]byte(c.Timestamp.Format("2.1.2006 15:04:05")))
 		case "responsecode":
@@ -51,4 +49,12 @@ func createParser(c shared.Check) func(w io.Writer, tag string) (int, error) {
 			return w.Write([]byte(fmt.Sprintf("[unknown tag '%s']", tag)))
 		}
 	}
+}
+
+func spaceIfVal(s string) []byte {
+	if len(s) > 0 {
+		return []byte(" " + s)
+	}
+	return []byte{}
+
 }

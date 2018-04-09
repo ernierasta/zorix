@@ -54,13 +54,13 @@ func (m *Manager) Listen() {
 // and sends Check to dispatch method.
 func (m *Manager) send(nc shared.NotifiedCheck) {
 	n := m.notifications[nc.NotificationID]
-	n = m.setSubjectAndText(nc.Check, n)
-	m.dispatch(nc.Check, n)
+	n = m.setSubjectAndText(nc.CheckConfig, n)
+	m.dispatch(nc.CheckConfig, n)
 }
 
 // setSubjectAndText determines notification type (fail, slow, failOK, slowOK), gets parsed subject
 // and text and sets them in returned Notification struct.
-func (m *Manager) setSubjectAndText(c shared.Check, n *shared.NotifConfig) *shared.NotifConfig {
+func (m *Manager) setSubjectAndText(c shared.CheckConfig, n *shared.NotifConfig) *shared.NotifConfig {
 	switch {
 	case c.Failure:
 		n.Subject = template.Parse(n.SubjectFail, c, n.ID, "subject_fail")
@@ -85,7 +85,7 @@ func (m *Manager) setSubjectAndText(c shared.Check, n *shared.NotifConfig) *shar
 }
 
 // dispach determines which plugin should be called
-func (m *Manager) dispatch(c shared.Check, n *shared.NotifConfig) {
+func (m *Manager) dispatch(c shared.CheckConfig, n *shared.NotifConfig) {
 
 	if nm, ok := NotificationModules[n.Type]; ok {
 		nm.Send(c, *n)
@@ -96,7 +96,7 @@ func (m *Manager) dispatch(c shared.Check, n *shared.NotifConfig) {
 
 //TestAll sends test message to all configured notifications.
 func (m *Manager) TestAll() {
-	fc := shared.Check{}
+	fc := shared.CheckConfig{}
 	for id, n := range m.notifications {
 		log.Infof("notify.TestAll: sending notification for %s type", id)
 		n.Subject = "Test notification from Zorix"

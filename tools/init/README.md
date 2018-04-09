@@ -26,3 +26,14 @@ sudo cp tools/init/runit/zorix /etc/sv/
 sudo chmod +x /etc/sv/zorix/run /etc/sv/zorix/log/run
 sudo mkdir /var/log/zorix
 ```
+
+sysvinit
+--------
+
+Tested on strange debian 9.4, but with sysvinit. ;-)
+
+```bash
+cp tools/init/sysvinit/debian/zorix /etc/init.d/
+chmod +x /etc/init.d/zorix
+
+```

@@ -21,7 +21,7 @@ func New() *Ping {
 }
 
 // Send ping
-func (w *Ping) Send(c shared.Check) (int, int64, error) {
+func (w *Ping) Send(c shared.CheckConfig) (int, int64, error) {
 	t0 := time.Now()
 
 	t1 := time.Now()

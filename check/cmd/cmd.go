@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/ernierasta/zorix/shared"
@@ -29,9 +30,9 @@ func New() *Cmd {
 // For convience success returns code 200 and errors:
 //   - starting command: 404
 //   - non zero status: 500
-func (w *Cmd) Send(c shared.Check) (int, int64, error) {
+func (w *Cmd) Send(c shared.CheckConfig) (int, int64, error) {
 	t0 := time.Now()
-	cmd := exec.Command(c.Check, c.Params...)
+	cmd := exec.Command(c.Check, strings.Split(c.Params, " ")...)
 	err := cmd.Start()
 	if err != nil {
 		return 404, 0, fmt.Errorf("cmd.Send: problem starting command '%s', params: '%s', err: %v", c.Check, c.Params, err)

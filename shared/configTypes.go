@@ -7,22 +7,26 @@ import "time"
 type Global struct {
 	Workers             int
 	Loglevel            string
-	NotifySubjectFail   string `toml:"notify_subject_fail"`
-	NotifySubjectSlow   string `toml:"notify_subject_slow"`
-	NotifySubjectFailOK string `toml:"notify_subject_fail_ok"`
-	NotifySubjectSlowOK string `toml:"notify_subject_slow_ok"`
-	NotifyTextFail      string `toml:"notify_text_fail"`
-	NotifyTextSlow      string `toml:"notify_text_slow"`
-	NotifyTextFailOK    string `toml:"notify_text_fail_ok"`
-	NotifyTextSlowOK    string `toml:"notify_text_slow_ok"`
+	HTTPTimeout         Duration `toml:"http_duration"`
+	NotifySubjectFail   string   `toml:"notify_subject_fail"`
+	NotifySubjectSlow   string   `toml:"notify_subject_slow"`
+	NotifySubjectFailOK string   `toml:"notify_subject_fail_ok"`
+	NotifySubjectSlowOK string   `toml:"notify_subject_slow_ok"`
+	NotifyTextFail      string   `toml:"notify_text_fail"`
+	NotifyTextSlow      string   `toml:"notify_text_slow"`
+	NotifyTextFailOK    string   `toml:"notify_text_fail_ok"`
+	NotifyTextSlowOK    string   `toml:"notify_text_slow_ok"`
 }
 
-// Check type represents all check attributes
-type Check struct {
+// CheckConfig type represents all check attributes
+type CheckConfig struct {
 	ID           int
 	Type         string
 	Check        string
-	Params       []string
+	Params       string
+	Headers      string
+	Method       string
+	Redirs       int
 	Repeat       Duration
 	ExpectedCode int      `toml:"code"`
 	ExpectedTime int64    `toml:"time"`
@@ -72,10 +76,10 @@ type NotifConfig struct {
 	RepeatSlow    []Duration `toml:"repeat_slow"`
 }
 
-// NotifiedCheck is Check with notification ID string.
+// NotifiedCheck is CheckConfig with notification ID string.
 // It is used for sending notification.
 type NotifiedCheck struct {
-	Check
+	CheckConfig
 	NotificationID string
 }
 

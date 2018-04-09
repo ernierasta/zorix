@@ -15,16 +15,16 @@ import (
 // Processor analyze and store check results.
 // If needed, it sends notifications.
 type Processor struct {
-	resultChan    chan shared.Check
+	resultChan    chan shared.CheckConfig
 	notifChan     chan shared.NotifiedCheck
 	recoveryChans map[string]chan bool
-	checks        map[int]*shared.Check
+	checks        map[int]*shared.CheckConfig
 	notifications map[string]*shared.NotifConfig
 	mutex         *sync.Mutex
 }
 
 // New returns processor instance
-func New(resultChan chan shared.Check, notifChan chan shared.NotifiedCheck, checkAmmount int, notifications []shared.NotifConfig) *Processor {
+func New(resultChan chan shared.CheckConfig, notifChan chan shared.NotifiedCheck, checkAmmount int, notifications []shared.NotifConfig) *Processor {
 	notes := make(map[string]*shared.NotifConfig, len(notifications))
 	for _, n := range notifications {
 		notes[n.ID] = &n
@@ -34,7 +34,7 @@ func New(resultChan chan shared.Check, notifChan chan shared.NotifiedCheck, chec
 		resultChan:    resultChan,
 		notifChan:     notifChan,
 		recoveryChans: make(map[string]chan bool, checkAmmount*len(notifications)),
-		checks:        make(map[int]*shared.Check, checkAmmount),
+		checks:        make(map[int]*shared.CheckConfig, checkAmmount),
 		notifications: notes,
 		mutex:         &sync.Mutex{},
 	}
@@ -49,7 +49,7 @@ func (p *Processor) Listen() {
 			case c := <-p.resultChan:
 				c = p.analyze(c)
 				p.updateCheckResult(c)
-				log.WithFields(log.Fields{"id": c.ID, "check": c.Check, "code:": c.ReturnedCode, "time": c.ReturnedTime, "fails": p.checks[c.ID].Fails, "allowed_fails": c.AllowedFails, "slows": p.checks[c.ID].Slowdowns, "allowed_slows": c.AllowedSlows}).Debug("p.Listen: new result")
+				log.WithFields(log.Fields{"id": c.ID, "check": c.Check, "code:": c.ReturnedCode, "time": c.ReturnedTime, "fails": p.checks[c.ID].Fails, "allowed_fails": c.AllowedFails, "slows": p.checks[c.ID].Slowdowns, "allowed_slows": c.AllowedSlows}).Debug("p.Listen: new result comes to precessor")
 				p.notify(c.ID)
 			}
 
@@ -57,7 +57,7 @@ func (p *Processor) Listen() {
 	}()
 }
 
-func (p *Processor) analyze(r shared.Check) shared.Check {
+func (p *Processor) analyze(r shared.CheckConfig) shared.CheckConfig {
 
 	if r.Error != nil {
 		r.Fails = 1
@@ -83,7 +83,7 @@ func (p *Processor) analyze(r shared.Check) shared.Check {
 
 // updateCheckResult will store actual result in checks map.
 // It will increment fail or slowdown counter if needed.
-func (p *Processor) updateCheckResult(r shared.Check) {
+func (p *Processor) updateCheckResult(r shared.CheckConfig) {
 	// if this check failed, add amount of failures to check data
 	if r.Fails == 1 {
 		if prevResult, ok := p.checks[r.ID]; ok {
@@ -127,11 +127,11 @@ func (p *Processor) updateCheckResult(r shared.Check) {
 }
 
 // notify checks if notification is needed, if so, send them it to notifyGenerator.
-// We are sending only Checks with NotifyFail, NotifySlow, RecoveryFailure, RecoverySlow,
-// those messages are sent always only once for given Check.
+// We are sending only CheckConfigs with NotifyFail, NotifySlow, RecoveryFailure, RecoverySlow,
+// those messages are sent always only once for given CheckConfig.
 func (p *Processor) notify(id int) {
 
-	if p.checks[id].NotifyFail != nil {
+	if len(p.checks[id].NotifyFail) > 0 {
 		if p.checks[id].Fails == p.checks[id].AllowedFails && p.checks[id].Fails != 0 {
 			log.Debugf("p.notify: f == allowed & not 0, %d sent to generator", id)
 			p.notifyGenerator(id, false)
@@ -141,7 +141,7 @@ func (p *Processor) notify(id int) {
 		}
 	}
 
-	if p.checks[id].NotifySlow != nil {
+	if len(p.checks[id].NotifySlow) > 0 {
 		if p.checks[id].Slowdowns == p.checks[id].AllowedSlows && p.checks[id].Slowdowns != 0 {
 			p.notifyGenerator(id, false)
 		} else if p.checks[id].RecoverySlow {
@@ -156,9 +156,9 @@ func (p *Processor) notifyGenerator(cID int, isRecovery bool) {
 
 	source := []string{}
 	if p.checks[cID].Failure || p.checks[cID].RecoveryFailure {
-		source = p.checks[cID].NotifyFail
+		source = p.validateNotifyIDList(p.checks[cID].NotifyFail)
 	} else if p.checks[cID].Slow || p.checks[cID].RecoverySlow {
-		source = p.checks[cID].NotifySlow
+		source = p.validateNotifyIDList(p.checks[cID].NotifySlow)
 	} else {
 		log.Errorf("processor.notifyGenerator: unknown failure type (not Fail or Slow)")
 	}
@@ -169,18 +169,18 @@ func (p *Processor) notifyGenerator(cID int, isRecovery bool) {
 		if p.checks[cID].Failure || p.checks[cID].RecoveryFailure {
 			schedule = p.notifications[nID].RepeatFail
 		} else {
-			schedule = p.notifications[nID].RepeatSlow
+			schedule = p.notifications[nID].RepeatSlow //TODO: segfault
 		}
 
 		cnID := fmt.Sprintf("%d%s", cID, nID) // make unique ID string for this notification
 		if isRecovery {
 			// if recovery is BEFORE creating goroutine, it will stuck, send only if channel created = goroutine exists
 			if _, ok := p.recoveryChans[cnID]; ok {
-				p.recoveryChans[cnID] <- true // every Check's notification has uniq quit channel
+				p.recoveryChans[cnID] <- true // every CheckConfig's notification has uniq quit channel
 				log.Debugf("p.notifyGenerator: recovery message for %d (notification: %s) sent to channel: recoveryChans[%s]", cID, nID, cnID)
 			}
 		} else {
-			p.notifChan <- shared.NotifiedCheck{Check: *p.checks[cID], NotificationID: nID} // send first notification directly
+			p.notifChan <- shared.NotifiedCheck{CheckConfig: *p.checks[cID], NotificationID: nID} // send first notification directly
 			p.recoveryChans[cnID] = make(chan bool, 1)
 			log.Debugf("p.notifyGenerator: start go notificationTimer with recoveryChans[%s] for %d (notification: %s)", cnID, cID, nID)
 			go p.notificationTimer(cID, schedule, p.notifications[nID].ID, p.notifChan, p.recoveryChans[cnID])
@@ -188,9 +188,9 @@ func (p *Processor) notifyGenerator(cID int, isRecovery bool) {
 	}
 }
 
-// notificationTimer is running as goroutine for every Check. There is always
-// only one instance for Check.
-// It takes Check and schedule in form [ 1m, 5m, 10m ], where last interval is repeated until the end.
+// notificationTimer is running as goroutine for every CheckConfig. There is always
+// only one instance for CheckConfig.
+// It takes CheckConfig and schedule in form [ 1m, 5m, 10m ], where last interval is repeated until the end.
 // If last interval is 0s, then it will stop notifications and terminate goroutine.
 // Recovery message will be sent and will also terminate goroutine.
 func (p *Processor) notificationTimer(cID int, schedule []shared.Duration, nID string, notifChan chan<- shared.NotifiedCheck, recovery chan bool) {
@@ -217,7 +217,7 @@ func (p *Processor) notificationTimer(cID int, schedule []shared.Duration, nID s
 			case <-recovery:
 				log.Debug("p.notificationTimer: sending recovery to channel")
 				p.mutex.Lock()
-				notifChan <- shared.NotifiedCheck{Check: *p.checks[cID], NotificationID: nID}
+				notifChan <- shared.NotifiedCheck{CheckConfig: *p.checks[cID], NotificationID: nID}
 				timer.Stop()
 				p.mutex.Unlock()
 				log.Debugf("p.notificationTimer: recovery message received for %d (notification: %s)", cID, nID)
@@ -231,7 +231,7 @@ func (p *Processor) notificationTimer(cID int, schedule []shared.Duration, nID s
 						<-timer.C
 						log.Debugf("p.notificationTimer: sending message %d(nID: %s) to notifChan", cID, nID)
 						p.mutex.Lock()
-						notifChan <- shared.NotifiedCheck{Check: *p.checks[cID], NotificationID: nID}
+						notifChan <- shared.NotifiedCheck{CheckConfig: *p.checks[cID], NotificationID: nID}
 						p.mutex.Unlock()
 						sent = true
 					}()
@@ -246,4 +246,18 @@ func (p *Processor) notificationTimer(cID int, schedule []shared.Duration, nID s
 			time.Sleep(1 * time.Second)
 		}
 	}
+}
+
+// validateNotifyIDList checks if all notification in slice
+// are valid notification ID's. If not, remove them from slice.
+func (p *Processor) validateNotifyIDList(ss []string) []string {
+	res := []string{}
+	for _, nID := range ss {
+		if _, ok := p.notifications[nID]; ok {
+			res = append(res, nID)
+		} else {
+			log.WithFields(log.Fields{"given": nID}).Warn("p.validateNotifyIDList: found strange NotificationID")
+		}
+	}
+	return res
 }
