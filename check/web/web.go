@@ -31,11 +31,11 @@ func New(t shared.Duration) *Web {
 }
 
 // Send web request to destination url
-func (w *Web) Send(c shared.CheckConfig) (int, int64, error) {
+func (w *Web) Send(c shared.CheckConfig) (int, string, int64, error) {
 
 	request, err := w.newRequest(&c)
 	if err != nil {
-		return 0, 0, err
+		return 0, "", 0, err
 	}
 
 	client := http.Client{
@@ -46,20 +46,20 @@ func (w *Web) Send(c shared.CheckConfig) (int, int64, error) {
 	t0 := time.Now()
 	//resp, err := client.Get(c.Check)
 	resp, err := client.Do(request)
-	t1 := time.Now()
+	reqDur := time.Since(t0)
 	if err != nil {
-		return 0, 0, err
+		return 0, "", 0, err
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return 0, 0, fmt.Errorf("web.Test: can not read response")
+		return 0, "", 0, fmt.Errorf("web.Test: can not read response")
 	}
 	if len(body) == 0 {
-		return 0, 0, fmt.Errorf("web.Test: returned body is empty")
+		return 0, "", 0, fmt.Errorf("web.Test: returned body is empty")
 	}
-
 	defer resp.Body.Close()
-	return resp.StatusCode, t1.Sub(t0).Nanoseconds() / 1000 / 1000, nil
+
+	return resp.StatusCode, string(body), reqDur.Nanoseconds() / 1000 / 1000, nil
 
 }
 
@@ -136,93 +136,3 @@ func addHeaders(r *http.Request, h map[string][]string) {
 		}
 	}
 }
-
-/*
-func PerformRequest(c shared.CheckConfig) error {
-
-	var request *http.Request
-	var reqErr error
-
-	if len(c.FormParams) == 0 {
-		//formParams create a request
-		request, reqErr = http.NewRequest(c.RequestType,
-			c.Url,
-			nil)
-
-	} else {
-		if c.Headers[ContentType] == JsonContentType {
-			//create a request using using formParams
-
-			jsonBody, jsonErr := GetJsonParamsBody(c.FormParams)
-			if jsonErr != nil {
-				//Not able to create Request object.Add Error to Database
-
-				return jsonErr
-			}
-			request, reqErr = http.NewRequest(c.RequestType,
-				c.Url,
-				jsonBody)
-
-		} else {
-			//create a request using formParams
-			formParams := GetUrlValues(c.FormParams)
-
-			request, reqErr = http.NewRequest(c.RequestType,
-				c.Url,
-				bytes.NewBufferString(formParams.Encode()))
-
-			request.Header.Add(ContentLength, strconv.Itoa(len(formParams.Encode())))
-
-			if c.Headers[ContentType] != "" {
-				//Add content type to header if user doesnt mention it config file
-				//Default content type application/x-www-form-urlencoded
-				request.Header.Add(ContentType, FormContentType)
-			}
-		}
-	}
-
-	if reqErr != nil {
-		//Not able to create Request object.Add Error to Database
-
-		return reqErr
-	}
-
-	//add url parameters to query if present
-	if len(c.UrlParams) != 0 {
-		urlParams := GetUrlValues(c.UrlParams)
-		request.URL.RawQuery = urlParams.Encode()
-	}
-
-	//Add headers to the request
-	AddHeaders(request, c.Headers)
-
-	client := &http.Client{}
-	start := time.Now()
-
-	getResponse, respErr := client.Do(request)
-
-	if respErr != nil {
-		//Request failed . Add error info to database
-		var statusCode int
-		if getResponse == nil {
-			statusCode = 0
-		} else {
-			statusCode = getResponse.StatusCode
-		}
-		return respErr
-	}
-
-	defer getResponse.Body.Close()
-
-	if getResponse.StatusCode != c.ResponseCode {
-		//Response code is not the expected one .Add Error to database
-		return errResposeCode(getResponse.StatusCode, c.ResponseCode)
-	}
-
-	elapsed := time.Since(start)
-
-	//Request succesfull . Add infomartion to Database
-
-	return nil
-}
-*/

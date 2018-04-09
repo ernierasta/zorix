@@ -114,9 +114,10 @@ func (cm *Manager) createTicker(c shared.CheckConfig, checksChan chan shared.Che
 func (cm *Manager) startWorker(id string, worker shared.Worker, input, output chan shared.CheckConfig) {
 	log.WithFields(log.Fields{"worker_id": id}).Info("starting some work ...")
 	for c := range input {
-		code, time, err := worker.Send(c)
+		code, body, time, err := worker.Send(c)
 		c.ReturnedCode = code
 		c.ReturnedTime = time
+		c.Response = body
 		if err != nil {
 			c.Error = err
 		}

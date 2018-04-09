@@ -27,15 +27,17 @@ http_timeout = "60s"
 # All variables have to be surrounded by '{' and '}'.
 # Available variables:
 #  matching config options:
-#   {check}  - check as defined, f.e. : https://www.google.com, ping 
-#   {params} - space + params as defined in config, if no params: no space
-#   {headers} - HTTP headers, added space if not empty
+#   {check}    - check as defined, f.e. : https://www.google.com, ping 
+#   {params}   - space + params as defined in config, if no params: no space
+#   {headers}  - HTTP headers, added space if not empty
+#   {look_for} - string which should be in response, if not used, no space
 #  results:
 #    {responsecode} - code returned by check
 #    {expectedcode} - expected code (`code` in config)
-#    {timestamp}    - timestamp repsenting moment, when notification is send
+#    {timestamp}    - timestamp representing moment, when notification is send
 #    {expectedtime} - expected time (`time` in config)
 #    {responsetime} - time, response took
+#    {response}     - whole response body 
 #    {error}        - error returned by check
 #
 notify_subject_fail = "{check}{params} problem"
@@ -178,6 +180,12 @@ code = 200
 # default: 1000 ms
 # Determines in how much ms request have to be realized.
 time = 500
+
+# look_for.
+# default: ""
+# If given string is found in response, request was successful.
+# If empty, response check is not performed.
+look_for = ""
 
 # fails.
 # default: 1

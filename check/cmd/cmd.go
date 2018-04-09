@@ -30,19 +30,23 @@ func New() *Cmd {
 // For convience success returns code 200 and errors:
 //   - starting command: 404
 //   - non zero status: 500
-func (w *Cmd) Send(c shared.CheckConfig) (int, int64, error) {
+func (w *Cmd) Send(c shared.CheckConfig) (int, string, int64, error) {
 	t0 := time.Now()
 	cmd := exec.Command(c.Check, strings.Split(c.Params, " ")...)
 	err := cmd.Start()
 	if err != nil {
-		return 404, 0, fmt.Errorf("cmd.Send: problem starting command '%s', params: '%s', err: %v", c.Check, c.Params, err)
+		return 404, "", 0, fmt.Errorf("cmd.Send: problem starting command '%s', params: '%s', err: %v", c.Check, c.Params, err)
 	}
 	err = cmd.Wait()
-	t1 := time.Now()
+	duration := time.Since(t0)
 	if err != nil {
-		return 500, 0, fmt.Errorf("cmd.Send: process '%s', params: '%s',  returned non zero status, err: %v", c.Check, c.Params, err)
+		return 500, "", 0, fmt.Errorf("cmd.Send: process '%s', params: '%s',  returned non zero status, err: %v", c.Check, c.Params, err)
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return 500, "", 0, fmt.Errorf("cmd.Send: process '%s', params: '%s', problem retrieving command output, err %v", c.Check, c.Params, err)
 	}
 
-	return 200, t1.Sub(t0).Nanoseconds() / 1000 / 1000, nil
+	return 200, string(out), duration.Nanoseconds() / 1000 / 1000, nil
 
 }

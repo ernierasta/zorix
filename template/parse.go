@@ -29,6 +29,10 @@ func createParser(c shared.CheckConfig) func(w io.Writer, tag string) (int, erro
 			return w.Write(spaceIfVal(c.Params))
 		case "headers":
 			return w.Write(spaceIfVal(c.Headers))
+		case "look_for":
+			return w.Write(spaceIfVal(c.LookFor))
+		case "response":
+			return w.Write([]byte(c.Response))
 		case "timestamp":
 			return w.Write([]byte(c.Timestamp.Format("2.1.2006 15:04:05")))
 		case "responsecode":

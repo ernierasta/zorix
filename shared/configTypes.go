@@ -30,6 +30,7 @@ type CheckConfig struct {
 	Repeat       Duration
 	ExpectedCode int      `toml:"code"`
 	ExpectedTime int64    `toml:"time"`
+	LookFor      string   `toml:"look_for"`
 	AllowedFails int      `toml:"fails"`
 	AllowedSlows int      `toml:"slows"`
 	NotifyFail   []string `toml:"notify_fail"`
@@ -42,6 +43,7 @@ type CheckConfig struct {
 type ResultData struct {
 	WorkerType      Worker
 	ReturnedCode    int
+	Response        string
 	Error           error
 	ReturnedTime    int64
 	Slowdowns       int

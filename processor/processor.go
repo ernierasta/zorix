@@ -5,6 +5,7 @@ package processor
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -50,6 +51,7 @@ func (p *Processor) Listen() {
 				c = p.analyze(c)
 				p.updateCheckResult(c)
 				log.WithFields(log.Fields{"id": c.ID, "check": c.Check, "code:": c.ReturnedCode, "time": c.ReturnedTime, "fails": p.checks[c.ID].Fails, "allowed_fails": c.AllowedFails, "slows": p.checks[c.ID].Slowdowns, "allowed_slows": c.AllowedSlows}).Debug("p.Listen: new result comes to precessor")
+				log.Debug("response:" + c.Response)
 				p.notify(c.ID)
 			}
 
@@ -66,7 +68,12 @@ func (p *Processor) analyze(r shared.CheckConfig) shared.CheckConfig {
 		r.Fails = 1
 		if r.Error == nil {
 			r.Error = fmt.Errorf("wrong response code")
-
+		}
+	}
+	if r.LookFor != "" && !strings.Contains(r.Response, r.LookFor) {
+		r.Fails = 1
+		if r.Error == nil {
+			r.Error = fmt.Errorf("response does not contain: %s", r.LookFor)
 		}
 	}
 
