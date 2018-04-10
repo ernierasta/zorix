@@ -6,6 +6,7 @@ import (
 
 	"github.com/ernierasta/zorix/check/cmd"
 	"github.com/ernierasta/zorix/check/ping"
+	"github.com/ernierasta/zorix/check/port"
 	"github.com/ernierasta/zorix/check/web"
 	"github.com/ernierasta/zorix/shared"
 	log "github.com/sirupsen/logrus"
@@ -19,7 +20,9 @@ type Manager struct {
 	resultsChan              chan shared.CheckConfig
 	webChan, iwebChan        chan shared.CheckConfig
 	pingChan, cmdChan        chan shared.CheckConfig
+	portChan                 chan shared.CheckConfig
 	httpTimeout, pingTimeout shared.Duration
+	portTimeout              shared.Duration
 }
 
 // registerWorker adds worker to requestedWorkers map.
@@ -45,6 +48,8 @@ func (cm *Manager) registerWorker(t string) {
 		cm.requestedWorkers["cmd"] = worker{Worker: cmd.New(), Chan: cm.cmdChan, Checks: c}
 	case "ping":
 		cm.requestedWorkers["ping"] = worker{Worker: ping.New(cm.pingTimeout), Chan: cm.pingChan, Checks: c}
+	case "port":
+		cm.requestedWorkers["port"] = worker{Worker: port.New(cm.portTimeout), Chan: cm.portChan, Checks: c}
 	default:
 		log.Fatalf("check.registerWorker: unknown worker type: '%s', check config file.", t)
 	}
@@ -62,18 +67,20 @@ type worker struct {
 // checks: is slice of check params from config file
 // workers: is number of all shared.Worker concurrent workers for selected worker type
 // for example, 1 means: 1 web worker, 1 ping worker, ...
-func NewManager(checks []shared.CheckConfig, workers int, resultsChan chan shared.CheckConfig, httpTimeout, pingTimeout shared.Duration) *Manager {
+func NewManager(cc shared.CMConfig) *Manager {
 	return &Manager{
-		checks:           checks,
-		workers:          workers,
+		checks:           cc.Checks,
+		workers:          cc.Workers,
 		requestedWorkers: make(map[string]worker),
-		resultsChan:      resultsChan,
-		webChan:          make(chan shared.CheckConfig, len(checks)),
-		iwebChan:         make(chan shared.CheckConfig, len(checks)),
-		cmdChan:          make(chan shared.CheckConfig, len(checks)),
-		pingChan:         make(chan shared.CheckConfig, len(checks)),
-		httpTimeout:      httpTimeout,
-		pingTimeout:      pingTimeout,
+		resultsChan:      cc.ResultsChan,
+		webChan:          make(chan shared.CheckConfig, len(cc.Checks)),
+		iwebChan:         make(chan shared.CheckConfig, len(cc.Checks)),
+		cmdChan:          make(chan shared.CheckConfig, len(cc.Checks)),
+		pingChan:         make(chan shared.CheckConfig, len(cc.Checks)),
+		portChan:         make(chan shared.CheckConfig, len(cc.Checks)),
+		httpTimeout:      cc.HTTPTimeout,
+		pingTimeout:      cc.PingTimeout,
+		portTimeout:      cc.PortTimeout,
 	}
 }
 
@@ -83,7 +90,7 @@ func (cm *Manager) Register() {
 	for i, c := range cm.checks {
 		cm.registerWorker(c.Type)
 		cm.checks[i].ID = i + 1
-		//no checkin on start: log.Println(cm.requestedWorkers[c.Type].Worker.Send(c))
+		//no checking on start: log.Println(cm.requestedWorkers[c.Type].Worker.Send(c))
 	}
 }
 

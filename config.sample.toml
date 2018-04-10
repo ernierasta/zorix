@@ -23,6 +23,11 @@ http_timeout = "60s"
 # Define timeout for ping command. Will be passed as argument to ping.
 ping_timeout = "60s"
 
+# port_timeout.
+# default: 5s
+# Define timeout for port scanner. It should be quit small.
+port_timeout = "5s"
+
 # Notification templates, you can overwrite them inside notify sections.
 # There are 2 types of notifications:
 #  - fail: check failed completely (wrong code returned, timeout),
@@ -136,6 +141,7 @@ repeat_slow = ["60s", "6m", "0"]
 # type = "insecureweb"  - Web check ignoring certificate.
 # type = "cmd"          - Run any command to check something.
 # type = "ping"         - ping server
+# type = "port"         - checking port
 type = "web"
 
 # check, MANDATORY.
@@ -144,6 +150,7 @@ type = "web"
 # - web & insecureweb:  `http://www.google.com`
 # - cmd:                `/usr/bin/ping` or just `ping`
 # - ping:               `google.com`
+# - port:               `google.com:80`
 check = "http://www.google.com"
 
 # params.

@@ -50,7 +50,7 @@ But do not worry, tests will come, adding tests will be good opportunity to refa
 - [x] add [global] section to config, allow defining notification templates there,
 - [ ] check code for any panics, allow them only on process start, but not when it is running (should be ok already),
 - [x] add ping check type,
-- [ ] port testing,
+- [x] port testing,
 - [ ] normalize logging,
 - [ ] database storage: influxdb, maybe more if needed,
 - [ ] document db usage, grafana integration,

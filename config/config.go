@@ -14,6 +14,7 @@ const (
 	Loglevel    = "warn"
 	HTTPTimeout = "60s"
 	PingTimeout = "60s"
+	PortTimeout = "5s"
 
 	CheckType         = "web"
 	CheckMethod       = "GET"
@@ -146,6 +147,9 @@ func (c *Config) normalizeGlobal() {
 	}
 	if c.Global.PingTimeout.Duration == 0 {
 		c.Global.PingTimeout.ParseDuration(PingTimeout)
+	}
+	if c.Global.PortTimeout.Duration == 0 {
+		c.Global.PortTimeout.ParseDuration(PortTimeout)
 	}
 }
 

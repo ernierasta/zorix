@@ -26,9 +26,8 @@ func New(timeout shared.Duration) *Ping {
 }
 
 // Send runs ping command with reasonable.
-// Returns returnCode, requestTime and error.
+// Returns returnCode, ping output, requestTime and error.
 // For convince success returns code 200 and errors:
-//   - starting ping: 404
 //   - non zero ping status: 500
 func (w *Ping) Send(c shared.CheckConfig) (int, string, int64, error) {
 	t0 := time.Now()
