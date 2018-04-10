@@ -31,9 +31,13 @@ sysvinit
 --------
 
 Tested on strange debian 9.4, but with sysvinit. ;-)
+Logging directly to /var/log/zorix.log
 
 ```bash
 cp tools/init/sysvinit/debian/zorix /etc/init.d/
 chmod +x /etc/init.d/zorix
-
+update-rc.d zorix defaults
+service zorix start
 ```
+
+
