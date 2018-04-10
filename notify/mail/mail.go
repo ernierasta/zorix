@@ -22,6 +22,7 @@ type Mail struct{}
 // Supports multiple recepients, TLS (port 465)/StartTLS(ports 25,587, any other).
 // Mail should always valid (correctly encoded subject and body).
 func (m *Mail) Send(c shared.CheckConfig, n shared.NotifConfig) {
+	log.WithFields(log.Fields{"subj": n.Subject, "body": n.Text, "params:": c.Params}).Debug("mail.Send: New mail.")
 	if (n.User != "" && n.Pass == "") ||
 		(n.Pass != "" && n.User == "") ||
 		n.Server == "" {
@@ -29,7 +30,7 @@ func (m *Mail) Send(c shared.CheckConfig, n shared.NotifConfig) {
 		if len(n.Pass) > 3 {
 			pass = n.Pass[0:3] + "..."
 		} else {
-			pass = n.Pass // if someone has 3 leter pass, it deserves to be logged ;-)
+			pass = n.Pass // if someone has 4 leter pass, it deserves to be logged ;-)
 		}
 		log.WithFields(log.Fields{"u": n.User, "p": pass, "s": n.Server}).Error("One auth params is empty. MAIL NOT SENT. Fix config.")
 		return

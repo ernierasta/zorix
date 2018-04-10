@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	timeout = 60 * time.Second
+	timeout = 10 * time.Minute
 )
 
 // Cmd worker

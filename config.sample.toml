@@ -18,6 +18,11 @@ loglevel = "warn"
 # Define timeout for http requests.
 http_timeout = "60s"
 
+# ping_timeout.
+# default: 60s
+# Define timeout for ping command. Will be passed as argument to ping.
+ping_timeout = "60s"
+
 # Notification templates, you can overwrite them inside notify sections.
 # There are 2 types of notifications:
 #  - fail: check failed completely (wrong code returned, timeout),
@@ -126,23 +131,30 @@ repeat_slow = ["60s", "6m", "0"]
 # type
 # default: "web"
 # Currently available: 
-# type = "web"
-# type = "cmd"
+#
+# type = "web"          - Normal web check.
+# type = "insecureweb"  - Web check ignoring certificate.
+# type = "cmd"          - Run any command to check something.
+# type = "ping"         - ping server
 type = "web"
 
 # check, MANDATORY.
 # Depending on type, check can be:
-#   `http://www.google.com`
-#   `/usr/bin/ping` or just `ping`
+# 
+# - web & insecureweb:  `http://www.google.com`
+# - cmd:                `/usr/bin/ping` or just `ping`
+# - ping:               `google.com`
 check = "http://www.google.com"
 
 # params.
 # default: ""
-# Params meaning depends on module. 
-# cmd: passed to check as cmd line params.
-# web: those are Form params ()
-# params = "google.com -c1 -t30"
-# params = "password=123&email=xxx"
+# Params meaning depends on type:
+#
+# - web & insecureweb: those are Form params
+#   - `"password=123&email=xxx"` (urlencoded POST)
+#   - `'{"zorix":"is great"}'` (any json you need)
+# - cmd: passed to check as cmd line params.
+#   - "google.com -c1 -t30"
 params = '{"data": [{"password": "xxx", "email": "xxx"}]}'
 
 # method.

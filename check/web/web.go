@@ -4,6 +4,7 @@ package web
 import (
 	"bufio"
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -22,12 +23,13 @@ const (
 
 // Web worker
 type Web struct {
-	timeout time.Duration
+	timeout    time.Duration
+	ignoreCert bool
 }
 
 // New return new web worker instance
-func New(t shared.Duration) *Web {
-	return &Web{t.Duration}
+func New(t shared.Duration, ignoreCert bool) *Web {
+	return &Web{t.Duration, ignoreCert}
 }
 
 // Send web request to destination url
@@ -38,7 +40,14 @@ func (w *Web) Send(c shared.CheckConfig) (int, string, int64, error) {
 		return 0, "", 0, err
 	}
 
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: w.ignoreCert,
+		},
+	}
+
 	client := http.Client{
+		Transport:     transport,
 		Timeout:       w.timeout,
 		CheckRedirect: redirectGuard(c.Redirs),
 	}

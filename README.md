@@ -39,18 +39,22 @@ But do not worry, tests will come, adding tests will be good opportunity to refa
    - [ ] run as service,
    - [ ] hide cmd,
    - [ ] ping on Windows.
-- [ ] implement better API checking (inspired by [statusOK](https://github.com/sanathp/statusok)):
-   - [ ] implement all bug raports from there (variables in config, redirection limits, json as body, self signed certs).
+- [x] implement better API checking:
+   - [x] json api testing, urlencoded POST requests,
+   - [x] string lookup in response body,
+   - [x] redirections limits,
+   - [x] environment variables in config,
+   - [x] ignore self signed certs.
 - [ ] implement jabber (xmpp) notifications,
 - [ ] implement cmd notifications (you can use any command as alerter),
-- [x] add [[global]] section to config, allow defining notification templates there,
+- [x] add [global] section to config, allow defining notification templates there,
 - [ ] check code for any panics, allow them only on process start, but not when it is running (should be ok already),
-- [ ] add check types: ping and other helper types to make config clearer,
+- [x] add ping check type,
 - [ ] port testing,
 - [ ] normalize logging,
 - [ ] database storage: influxdb, maybe more if needed,
 - [ ] document db usage, grafana integration,
-- [ ] implement [rtop](https://github.com/rapidloop/rtop) funkcionality.
+- [ ] implement [rtop](https://github.com/rapidloop/rtop) functionality.
   Configure ssh access, set thresholds and you have remote system resources monitored (cpu, ram, hdd, ...).
 
 ## Contributions
@@ -77,3 +81,14 @@ Reference to `zabbix` is intentional despite the fact, that `zorix` is incompara
 ### License
 
 This software is dual licensed, GPL v3 with the exception for MagikINFO s.r.o., which is sponsoring development and let me release it as open source!
+
+## Thanks
+
+### Libraries:
+
+  - [fasttemplate](https://github.com/valyala/fasttemplate) - wonderful templating package!
+
+### Projects:
+
+  - [statusOK](https://github.com/sanathp/statusok) - inspiration, how to test API-s.
+

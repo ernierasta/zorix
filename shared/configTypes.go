@@ -8,6 +8,7 @@ type Global struct {
 	Workers             int
 	Loglevel            string
 	HTTPTimeout         Duration `toml:"http_duration"`
+	PingTimeout         Duration `toml:"ping_timeout"`
 	NotifySubjectFail   string   `toml:"notify_subject_fail"`
 	NotifySubjectSlow   string   `toml:"notify_subject_slow"`
 	NotifySubjectFailOK string   `toml:"notify_subject_fail_ok"`

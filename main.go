@@ -51,7 +51,7 @@ func main() {
 	resultsChan := make(chan shared.CheckConfig, len(c.Checks)*10)
 	notifChan := make(chan shared.NotifiedCheck, len(c.Checks)*10)
 
-	chm := check.NewManager(c.Checks, c.Global.Workers, resultsChan, c.Global.HTTPTimeout)
+	chm := check.NewManager(c.Checks, c.Global.Workers, resultsChan, c.Global.HTTPTimeout, c.Global.PingTimeout)
 	proc := processor.New(resultsChan, notifChan, len(c.Checks), c.Notifications)
 	nm := notify.NewManager(notifChan, c.Notifications)
 

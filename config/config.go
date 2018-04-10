@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ernierasta/zorix/shared"
+	"github.com/ernierasta/zorix/template"
 
 	"github.com/BurntSushi/toml"
 )
@@ -12,6 +13,7 @@ import (
 const (
 	Loglevel    = "warn"
 	HTTPTimeout = "60s"
+	PingTimeout = "60s"
 
 	CheckType         = "web"
 	CheckMethod       = "GET"
@@ -131,6 +133,8 @@ func (c *Config) Normalize() {
 	c.normalizeGlobal()
 	c.normalizeChecks()
 	c.normalizeNotifications()
+
+	c.parseCheckVars()
 }
 
 func (c *Config) normalizeGlobal() {
@@ -139,6 +143,9 @@ func (c *Config) normalizeGlobal() {
 	}
 	if c.Global.HTTPTimeout.Duration == 0 {
 		c.Global.HTTPTimeout.ParseDuration(HTTPTimeout)
+	}
+	if c.Global.PingTimeout.Duration == 0 {
+		c.Global.PingTimeout.ParseDuration(PingTimeout)
 	}
 }
 
@@ -172,6 +179,15 @@ func (c *Config) normalizeChecks() {
 		if check.NotifySlow == nil {
 			c.Checks[i].NotifySlow = notifids
 		}
+	}
+}
+
+// parseCheckVars will expand all $var or ${var} to actual
+// enviroment variable.
+func (c *Config) parseCheckVars() {
+	for i, check := range c.Checks {
+		c.Checks[i].Params = template.ParseEnv(check.Params)
+		c.Checks[i].Headers = template.ParseEnv(check.Headers)
 	}
 }
 

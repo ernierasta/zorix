@@ -51,7 +51,7 @@ func (p *Processor) Listen() {
 				c = p.analyze(c)
 				p.updateCheckResult(c)
 				log.WithFields(log.Fields{"id": c.ID, "check": c.Check, "code:": c.ReturnedCode, "time": c.ReturnedTime, "fails": p.checks[c.ID].Fails, "allowed_fails": c.AllowedFails, "slows": p.checks[c.ID].Slowdowns, "allowed_slows": c.AllowedSlows}).Debug("p.Listen: new result comes to precessor")
-				log.Debug("response:" + c.Response)
+				//log.Debug("response:" + c.Response)
 				p.notify(c.ID)
 			}
 

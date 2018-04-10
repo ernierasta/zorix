@@ -3,6 +3,7 @@ package template
 import (
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/ernierasta/zorix/shared"
 	log "github.com/sirupsen/logrus"
@@ -10,17 +11,22 @@ import (
 	"github.com/valyala/fasttemplate"
 )
 
+// Parse parses string using config and result variables.
+// Usualy used for notification subject and body generation.
+// It looks for {something} tags.
 func Parse(ts string, c shared.CheckConfig, nID, field string) string {
 
 	st, err := fasttemplate.NewTemplate(ts, "{", "}")
 	if err != nil {
 		log.Errorf("error creating template from '%s' for notification ID: %s, err: %v", field, nID, err)
 	}
-	s := st.ExecuteFuncString(createParser(c))
+	s := st.ExecuteFuncString(ConfVarsParser(c))
 	return s
 }
 
-func createParser(c shared.CheckConfig) func(w io.Writer, tag string) (int, error) {
+// ConfVarsParser function replaces config and result data.
+// It is used for notification body and text.
+func ConfVarsParser(c shared.CheckConfig) func(w io.Writer, tag string) (int, error) {
 	return func(w io.Writer, tag string) (int, error) {
 		switch tag {
 		case "check":
@@ -61,4 +67,10 @@ func spaceIfVal(s string) []byte {
 	}
 	return []byte{}
 
+}
+
+// ParseEnv parses given template and replace all
+// occurence of $var or ${var} to enviroment vars values.
+func ParseEnv(ts string) string {
+	return os.ExpandEnv(ts)
 }
