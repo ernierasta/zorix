@@ -3,6 +3,7 @@ package notify
 import (
 	"fmt"
 
+	"github.com/ernierasta/zorix/notify/jabber"
 	"github.com/ernierasta/zorix/notify/mail"
 	"github.com/ernierasta/zorix/shared"
 	"github.com/ernierasta/zorix/template"
@@ -15,7 +16,8 @@ import (
 // value: Notifier interface, in fact concrete implementation.
 // This is only place, where you add new modules.
 var NotificationModules = map[string]shared.Notifier{
-	"mail": &mail.Mail{},
+	"mail":   &mail.Mail{},
+	"jabber": &jabber.Jabber{},
 } // TODO: do the same for checks
 
 // Manager sets up notifications and send them if needed
@@ -88,7 +90,11 @@ func (m *Manager) setSubjectAndText(c shared.CheckConfig, n *shared.NotifConfig)
 func (m *Manager) dispatch(c shared.CheckConfig, n *shared.NotifConfig) {
 
 	if nm, ok := NotificationModules[n.Type]; ok {
-		nm.Send(c, *n)
+		err := nm.Send(c, *n)
+		if err != nil {
+			log.Error(err)
+		}
+
 	} else {
 		log.Errorf("programming error, check is to late: unknown notification type: '%s'. Check config file.", n.Type)
 	}

@@ -21,7 +21,7 @@ type Mail struct{}
 // Send sends mail via smtp.
 // Supports multiple recepients, TLS (port 465)/StartTLS(ports 25,587, any other).
 // Mail should always valid (correctly encoded subject and body).
-func (m *Mail) Send(c shared.CheckConfig, n shared.NotifConfig) {
+func (m *Mail) Send(c shared.CheckConfig, n shared.NotifConfig) error {
 	log.WithFields(log.Fields{"subj": n.Subject, "body": n.Text, "params:": c.Params}).Debug("mail.Send: New mail.")
 	if (n.User != "" && n.Pass == "") ||
 		(n.Pass != "" && n.User == "") ||
@@ -32,8 +32,7 @@ func (m *Mail) Send(c shared.CheckConfig, n shared.NotifConfig) {
 		} else {
 			pass = n.Pass // if someone has 4 leter pass, it deserves to be logged ;-)
 		}
-		log.WithFields(log.Fields{"u": n.User, "p": pass, "s": n.Server}).Error("One auth params is empty. MAIL NOT SENT. Fix config.")
-		return
+		return fmt.Errorf("mail.Send: one of auth params is empty(SENDING ABORTED), u: %q p:%q s: %q", n.User, pass, n.Server)
 	}
 	auth := smtp.PlainAuth("", n.User, n.Pass, n.Server)
 
@@ -66,11 +65,13 @@ func (m *Mail) Send(c shared.CheckConfig, n shared.NotifConfig) {
 		"Subject":    header["Subject"]})
 
 	if err != nil {
-		maillog.Error("error sending mail, err:", err)
-	} else {
-		maillog.Debug("mail sent")
+		maillog.Debug("error sending mail, err:", err)
+		return fmt.Errorf("mail.Send: error sending mail, err: %v", err)
 	}
 
+	maillog.Debug("mail sent")
+
+	return nil
 }
 
 func encodeRFC2047(s string) string {

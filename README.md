@@ -45,7 +45,7 @@ But do not worry, tests will come, adding tests will be good opportunity to refa
    - [x] redirections limits,
    - [x] environment variables in config,
    - [x] ignore self signed certs.
-- [ ] implement jabber (xmpp) notifications,
+- [x] implement jabber (xmpp) notifications,
 - [ ] implement cmd notifications (you can use any command as alerter),
 - [x] add [global] section to config, allow defining notification templates there,
 - [ ] check code for any panics, allow them only on process start, but not when it is running (should be ok already),

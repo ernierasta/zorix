@@ -71,6 +71,7 @@ id = "notes-mail"
 # default: mail
 # Notification type, currently available:
 # type = "mail"
+# type = "jabber"
 # type = "cmd"
 type = "mail"
 
@@ -79,13 +80,16 @@ type = "mail"
 server = "magikinfo.cz"
 
 # port, MANDATORY.
-# Service port. For mail, we support TLS on 465 and STARTTLS on 587
+# Service port. 
+# For mail, we support TLS on 465 and STARTTLS on 587.
+# For jabber usually 5223.
 port = 587
 
 # ignore_cert.
 # default: false
 # options: true/false
 # Allows you to ignore wrong certificate on mail server.
+# If jabber server allows that, you can skip cert check too.
 ignore_cert = false
 
 # user, MANDATORY.
@@ -101,6 +105,7 @@ pass = "pass"
 # from.
 # default: taken from user.
 # Sent from (if supported by service).
+# Ignored for jabber.
 from = "tester@magikinfo.cz"
 
 # to, MANDATORY.

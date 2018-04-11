@@ -7,5 +7,5 @@ type Worker interface {
 
 // Notifier sends notification away
 type Notifier interface {
-	Send(c CheckConfig, n NotifConfig)
+	Send(c CheckConfig, n NotifConfig) error
 }

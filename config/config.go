@@ -38,7 +38,7 @@ const (
 var (
 	// notifTypes is slice of available notifications. Empty is also ok, will be normalized.
 	// Add new type here!
-	notifTypes = []string{"", "mail"}
+	notifTypes = []string{"", "mail", "jabber"}
 )
 
 // Config represents whole configuration file parsed to stuct.
