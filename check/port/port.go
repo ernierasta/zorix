@@ -25,7 +25,6 @@ func New(timeout shared.Duration) *Port {
 //   - closed: 500
 func (p *Port) Send(c shared.CheckConfig) (int, string, int64, error) {
 	t0 := time.Now()
-	fmt.Println("tcp", c.Check, p.timeout.String())
 	conn, err := net.DialTimeout("tcp", c.Check, p.timeout.Duration)
 	duration := time.Since(t0)
 	if err != nil {

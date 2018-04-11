@@ -59,7 +59,7 @@ func (j *Jabber) Send(c shared.CheckConfig, n shared.NotifConfig) error {
 	}
 	for _, recipient := range n.To {
 		i, err := talk.Send(xmpp.Chat{Remote: recipient, Type: "chat", Text: n.Text})
-		log.Debugf("sent %d bytes to server\n", i)
+		log.Debugf("jabber.Send: message sent, %d bytes went to server\n", i)
 		if err != nil {
 			return fmt.Errorf("jabber.Send: error sending message to %s, err: %v", recipient, err)
 		}

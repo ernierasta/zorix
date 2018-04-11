@@ -22,7 +22,7 @@ type Global struct {
 
 // CheckConfig type represents all check attributes
 type CheckConfig struct {
-	ID           int
+	ID           string
 	Type         string
 	Check        string
 	Params       string

@@ -83,22 +83,28 @@ func (c *Config) validateGlobal() error {
 }
 
 func (c *Config) validateChecks() error {
+	if len(c.Checks) == 0 {
+		return fmt.Errorf("config.validate: no checks defined, fix config file")
+	}
+
 	for i, check := range c.Checks {
-		i++ //count from 1
+		i++ // count from 1
+		if check.ID == "" {
+			return fmt.Errorf("config.validate: empty 'ID' in %d. check. This field is mandatory, fix config file", i)
+		}
 		if check.Check == "" {
-			return fmt.Errorf("config.validate: empty 'check' for %d. check. This field is mandatory, fix config file", i)
+			return fmt.Errorf("config.validate: empty 'check' for %q. check. This field is mandatory, fix config file", check.ID)
 		}
 		if check.NotifyFail != nil {
 			if err := c.validateNotifyIDList(check.NotifyFail); err != nil {
-				return fmt.Errorf("config.validate: wrong notification in notify_fail for %d. check, err: %v. fix config file", i, err)
+				return fmt.Errorf("config.validate: wrong notification in 'notify_fail' for %q. check, err: %v. fix config file", check.ID, err)
 			}
 		}
 		if check.NotifySlow != nil {
 			if err := c.validateNotifyIDList(check.NotifySlow); err != nil {
-				return fmt.Errorf("config.validate: wrong notification in notify_slow for %d. check, err: %v. fix config file", i, err)
+				return fmt.Errorf("config.validate: wrong notification in 'notify_slow' for %q check, err: %v. fix config file", check.ID, err)
 			}
 		}
-
 	}
 	return nil
 }
@@ -110,19 +116,19 @@ func (c *Config) validateNotifications() error {
 			return fmt.Errorf("config.validate: empty 'ID' for %d. notification. This field is mandatory, fix config file", i)
 		}
 		if !found(notif.Type, notifTypes) {
-			return fmt.Errorf("config.validate: unknown Type for %d. notification. Check config file", i)
+			return fmt.Errorf("config.validate: unknown Type for %q. notification. Check config file", notif.ID)
 		}
 		if notif.Server == "" {
-			return fmt.Errorf("config.validate: empty 'server' for %d. notification. This field is mandatory, fix config file", i)
+			return fmt.Errorf("config.validate: empty 'server' for %q. notification. This field is mandatory, fix config file", notif.ID)
 		}
 		if notif.Port == 0 {
-			return fmt.Errorf("config.validate: Given 0 as 'port' for %d. notification. This field must be non-zero, fix config file", i)
+			return fmt.Errorf("config.validate: Given 0 as 'port' for %q. notification. This field must be non-zero, fix config file", notif.ID)
 		}
 		if notif.From == "" && notif.User == "" {
-			return fmt.Errorf("config.validate: empty 'from' for %d. notification. This field is mandatory, fix config file", i)
+			return fmt.Errorf("config.validate: empty 'from' for %q. notification. This field is mandatory, fix config file", notif.ID)
 		}
 		if notif.To == nil {
-			return fmt.Errorf("config.validate: empty 'to' for %d. notification. This field is mandatory, fix config file", i)
+			return fmt.Errorf("config.validate: empty 'to' for %q. notification. This field is mandatory, fix config file", notif.ID)
 		}
 
 	}
@@ -192,6 +198,11 @@ func (c *Config) parseCheckVars() {
 	for i, check := range c.Checks {
 		c.Checks[i].Params = template.ParseEnv(check.Params)
 		c.Checks[i].Headers = template.ParseEnv(check.Headers)
+	}
+	for i, notif := range c.Notifications {
+		c.Notifications[i].User = template.ParseEnv(notif.User)
+		c.Notifications[i].Pass = template.ParseEnv(notif.Pass)
+		c.Notifications[i].Server = template.ParseEnv(notif.Server)
 	}
 }
 

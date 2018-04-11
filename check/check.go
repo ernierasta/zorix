@@ -87,9 +87,8 @@ func NewManager(cc shared.CMConfig) *Manager {
 // Register registers required workers, based on checks.
 // Add check numeric id here.
 func (cm *Manager) Register() {
-	for i, c := range cm.checks {
+	for _, c := range cm.checks {
 		cm.registerWorker(c.Type)
-		cm.checks[i].ID = i + 1
 		//no checking on start: log.Println(cm.requestedWorkers[c.Type].Worker.Send(c))
 	}
 }

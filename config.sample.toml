@@ -138,6 +138,11 @@ repeat_slow = ["60s", "6m", "0"]
 [[check]]
 # There can be unlimited amount of [[check]] sections.
 
+# ID, MANDATORY.
+# ID is string, it can be anything.
+# Currently useful for logging, may be used in future.
+ID = "google-web"
+
 # type
 # default: "web"
 # Currently available: 

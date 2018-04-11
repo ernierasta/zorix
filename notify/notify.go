@@ -29,8 +29,8 @@ type Manager struct {
 // NewManager creates new instance of notification manager
 func NewManager(notifChan chan shared.NotifiedCheck, notifications []shared.NotifConfig) *Manager {
 	notes := make(map[string]*shared.NotifConfig, len(notifications))
-	for _, n := range notifications {
-		notes[n.ID] = &n
+	for id, n := range notifications {
+		notes[n.ID] = &notifications[id]
 	}
 	return &Manager{
 		notifChan:     notifChan,
@@ -103,11 +103,11 @@ func (m *Manager) dispatch(c shared.CheckConfig, n *shared.NotifConfig) {
 //TestAll sends test message to all configured notifications.
 func (m *Manager) TestAll() {
 	fc := shared.CheckConfig{}
-	for id, n := range m.notifications {
-		log.Infof("notify.TestAll: sending notification for %s type", id)
+	for _, n := range m.notifications {
+		log.Infof("notify.TestAll: sending notification for %s type", n.ID)
 		n.Subject = "Test notification from Zorix"
 		n.Text = "Hi comrade!\nIf you are reading this, all went good.\nWe are glad you want to give Zorix a try!\n\nWelcome in Zorix community.\n\n Yours Zorix"
-		fmt.Printf("Trying to send '%s', check if it arrived!\n", n.ID)
+		log.Infof("notify.TestAll: trying to send '%s', check if it arrived!\n", n.ID)
 		m.dispatch(fc, n)
 	}
 }

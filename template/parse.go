@@ -70,7 +70,25 @@ func spaceIfVal(s string) []byte {
 }
 
 // ParseEnv parses given template and replace all
-// occurence of $var or ${var} to enviroment vars values.
+// occurence of ${var} to enviroment vars values.
 func ParseEnv(ts string) string {
-	return os.ExpandEnv(ts)
+
+	st, err := fasttemplate.NewTemplate(ts, "${", "}")
+	if err != nil {
+		log.Errorf("error creating template from '%s' for notification ID: %s, err: %v", err)
+	}
+
+	s := st.ExecuteFuncString(ConfEnvVarsParser())
+
+	return s
+}
+
+// ConfEnvVarsParser returns env parser
+func ConfEnvVarsParser() func(w io.Writer, tag string) (int, error) {
+	return func(w io.Writer, tag string) (int, error) {
+		if val, ok := os.LookupEnv(tag); ok {
+			return w.Write([]byte(val))
+		}
+		return w.Write([]byte(tag))
+	}
 }
