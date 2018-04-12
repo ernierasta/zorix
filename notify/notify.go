@@ -3,6 +3,7 @@ package notify
 import (
 	"fmt"
 
+	"github.com/ernierasta/zorix/notify/cmd"
 	"github.com/ernierasta/zorix/notify/jabber"
 	"github.com/ernierasta/zorix/notify/mail"
 	"github.com/ernierasta/zorix/shared"
@@ -18,6 +19,7 @@ import (
 var NotificationModules = map[string]shared.Notifier{
 	"mail":   &mail.Mail{},
 	"jabber": &jabber.Jabber{},
+	"cmd":    &cmd.Cmd{},
 } // TODO: do the same for checks
 
 // Manager sets up notifications and send them if needed
@@ -56,7 +58,11 @@ func (m *Manager) Listen() {
 // and sends Check to dispatch method.
 func (m *Manager) send(nc shared.NotifiedCheck) {
 	n := m.notifications[nc.NotificationID]
+	if isRecovery(nc.CheckConfig) && n.NoRecovery {
+		return // do not send recovery if 'no_recovery = true' in notification settings
+	}
 	n = m.setSubjectAndText(nc.CheckConfig, n)
+	n = m.parseNotificationCmd(nc.CheckConfig, n)
 	m.dispatch(nc.CheckConfig, n)
 }
 
@@ -86,11 +92,19 @@ func (m *Manager) setSubjectAndText(c shared.CheckConfig, n *shared.NotifConfig)
 
 }
 
+// parseNotificationCmd parses notification Cmd string.
+// first it replaces CheckConfig data, then any enviroment data.
+func (m *Manager) parseNotificationCmd(c shared.CheckConfig, n *shared.NotifConfig) *shared.NotifConfig {
+	n.Cmd = template.Parse(n.CmdTemplate, c, n.ID, "cmd")
+	n.Cmd = template.ParseNotif(n.Cmd, n, "cmd")
+	n.Cmd = template.ParseEnv(n.Cmd, n.ID, "cmd")
+	return n
+}
+
 // dispach determines which plugin should be called
 func (m *Manager) dispatch(c shared.CheckConfig, n *shared.NotifConfig) {
-
-	if nm, ok := NotificationModules[n.Type]; ok {
-		err := nm.Send(c, *n)
+	if _, ok := NotificationModules[n.Type]; ok {
+		err := NotificationModules[n.Type].Send(c, *n)
 		if err != nil {
 			log.Error(err)
 		}
@@ -104,10 +118,13 @@ func (m *Manager) dispatch(c shared.CheckConfig, n *shared.NotifConfig) {
 func (m *Manager) TestAll() {
 	fc := shared.CheckConfig{}
 	for _, n := range m.notifications {
-		log.Infof("notify.TestAll: sending notification for %s type", n.ID)
 		n.Subject = "Test notification from Zorix"
 		n.Text = "Hi comrade!\nIf you are reading this, all went good.\nWe are glad you want to give Zorix a try!\n\nWelcome in Zorix community.\n\n Yours Zorix"
 		log.Infof("notify.TestAll: trying to send '%s', check if it arrived!\n", n.ID)
 		m.dispatch(fc, n)
 	}
+}
+
+func isRecovery(c shared.CheckConfig) bool {
+	return c.RecoveryFailure || c.RecoverySlow
 }

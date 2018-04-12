@@ -29,16 +29,16 @@ const (
 	NotifySubjectSlow   = "{check}{params} slow"
 	NotifySubjectFailOK = "{check}{params} ok"
 	NotifySubjectSlowOK = "{check}{params} ok"
-	NotifyTextFail      = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\nError: {error}\n"
-	NotifyTextSlow      = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
-	NotifyTextFailOK    = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\n"
-	NotifyTextSlowOK    = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
+	NotifyTextFail      = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\nError: {error}\n"
+	NotifyTextSlow      = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
+	NotifyTextFailOK    = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\n"
+	NotifyTextSlowOK    = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
 )
 
 var (
 	// notifTypes is slice of available notifications. Empty is also ok, will be normalized.
 	// Add new type here!
-	notifTypes = []string{"", "mail", "jabber"}
+	notifTypes = []string{"", "mail", "jabber", "cmd"}
 )
 
 // Config represents whole configuration file parsed to stuct.
@@ -116,19 +116,22 @@ func (c *Config) validateNotifications() error {
 			return fmt.Errorf("config.validate: empty 'ID' for %d. notification. This field is mandatory, fix config file", i)
 		}
 		if !found(notif.Type, notifTypes) {
-			return fmt.Errorf("config.validate: unknown Type for %q. notification. Check config file", notif.ID)
+			return fmt.Errorf("config.validate: unknown Type for %q notification. Check config file", notif.ID)
 		}
-		if notif.Server == "" {
-			return fmt.Errorf("config.validate: empty 'server' for %q. notification. This field is mandatory, fix config file", notif.ID)
+		if notif.Type != "cmd" && notif.Server == "" {
+			return fmt.Errorf("config.validate: empty 'server' for %q notification. This field is mandatory, fix config file", notif.ID)
 		}
-		if notif.Port == 0 {
-			return fmt.Errorf("config.validate: Given 0 as 'port' for %q. notification. This field must be non-zero, fix config file", notif.ID)
+		if notif.Type != "cmd" && notif.Port == 0 {
+			return fmt.Errorf("config.validate: Given 0 as 'port' for %q notification. This field must be non-zero, fix config file", notif.ID)
 		}
-		if notif.From == "" && notif.User == "" {
-			return fmt.Errorf("config.validate: empty 'from' for %q. notification. This field is mandatory, fix config file", notif.ID)
+		if notif.Type != "cmd" && notif.From == "" && notif.User == "" {
+			return fmt.Errorf("config.validate: empty 'from' for %q notification. This field is mandatory, fix config file", notif.ID)
 		}
-		if notif.To == nil {
-			return fmt.Errorf("config.validate: empty 'to' for %q. notification. This field is mandatory, fix config file", notif.ID)
+		if notif.Type != "cmd" && notif.To == nil {
+			return fmt.Errorf("config.validate: empty 'to' for %q notification. This field is mandatory, fix config file", notif.ID)
+		}
+		if notif.Type == "cmd" && notif.CmdTemplate == "" {
+			return fmt.Errorf("config.validate: empty 'cmd' for %q notification. This field is mandatory, fix config file", notif.ID)
 		}
 
 	}
@@ -142,6 +145,7 @@ func (c *Config) Normalize() {
 	c.normalizeNotifications()
 
 	c.parseCheckVars()
+	c.parseNotifVars()
 }
 
 func (c *Config) normalizeGlobal() {
@@ -196,13 +200,17 @@ func (c *Config) normalizeChecks() {
 // enviroment variable.
 func (c *Config) parseCheckVars() {
 	for i, check := range c.Checks {
-		c.Checks[i].Params = template.ParseEnv(check.Params)
-		c.Checks[i].Headers = template.ParseEnv(check.Headers)
+		c.Checks[i].Params = template.ParseEnv(check.Params, check.ID, "params")
+		c.Checks[i].Headers = template.ParseEnv(check.Headers, check.ID, "headers")
 	}
+
+}
+
+func (c *Config) parseNotifVars() {
 	for i, notif := range c.Notifications {
-		c.Notifications[i].User = template.ParseEnv(notif.User)
-		c.Notifications[i].Pass = template.ParseEnv(notif.Pass)
-		c.Notifications[i].Server = template.ParseEnv(notif.Server)
+		c.Notifications[i].User = template.ParseEnv(notif.User, notif.ID, "user")
+		c.Notifications[i].Pass = template.ParseEnv(notif.Pass, notif.ID, "pass")
+		c.Notifications[i].Server = template.ParseEnv(notif.Server, notif.ID, "server")
 	}
 }
 

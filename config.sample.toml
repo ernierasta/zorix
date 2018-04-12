@@ -37,16 +37,28 @@ port_timeout = "5s"
 # All variables have to be surrounded by '{' and '}'.
 # Available variables:
 #  matching config options:
+#
+#   {cID}      - check ID
+#   {ctype}    - check type
 #   {check}    - check as defined, f.e. : https://www.google.com, ping 
 #   {params}   - space + params as defined in config, if no params: no space
 #   {headers}  - HTTP headers, added space if not empty
+#   {redirs}   - nr of allowed redirections
+#   {repeat}   - how often check is made
+#   {method}   - for HTTP, GET, POST, ...
 #   {look_for} - string which should be in response, if not used, no space
+#    {allowed_fails} - how many times check can fail before notification
+#    {allowed_slows} - how many times check can be slow before notification
+#    {notify_fail}   - which notifications are set for check fail
+#    {notify_slow}   - which notifications are set for slow check
+#    
 #  results:
-#    {responsecode} - code returned by check
-#    {expectedcode} - expected code (`code` in config)
+#    
+#    {response_code} - code returned by check
+#    {expected_code} - expected code (`code` in config)
 #    {timestamp}    - timestamp representing moment, when notification is send
-#    {expectedtime} - expected time (`time` in config)
-#    {responsetime} - time, response took
+#    {expected_time} - expected time (`time` in config)
+#    {response_time} - time, response took
 #    {response}     - whole response body 
 #    {error}        - error returned by check
 #
@@ -54,10 +66,10 @@ notify_subject_fail = "{check}{params} problem"
 notify_subject_slow = "{check}{params} slow"
 notify_subject_fail_ok = "{check}{params} ok"
 notify_subject_slow_ok = "{check}{params} ok"
-notify_text_fail = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\nError: {error}\n"
-notify_text_slow = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
-notify_fail_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\n"
-notify_slow_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
+notify_text_fail = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\nError: {error}\n"
+notify_text_slow = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
+notify_text_fail_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\n"
+notify_text_slow_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
 
 
 [[notify]]
@@ -112,15 +124,29 @@ from = "tester@magikinfo.cz"
 # Sent to (if make sense for this type). This is list of usernames separated by comma.
 to = ["tester@zori.cz"]
 
+# cmd.
+# default: ""
+# Command used for cmd type notification.
+# You can use any type of variables in cmd:
+#
+# - check variables,
+# - notification variables,
+# - environment variables.
+#
+# For example:
+#
+# cmd = 'echo "check: {check}, notification text: {text}, h: ${HOME}"'
+cmd = 'notify-send "{subject}" "{text}"'
+
 # Overwrite global template if needed.
 #subject_fail = "{check}{params} problem"
 #subject_slow = "{check}{params} slow"
 #subject_fail_ok = "{check}{params} ok"
 #subject_slow_ok = "{check}{params} ok"
-#text_fail = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\nError: {error}\n"
-#text_slow = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
-#text_fail_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {responsecode}\n"
-#text_slow_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {responsetime}/{expectedtime}\n"
+#text_fail = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\nError: {error}\n"
+#text_slow = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
+#text_fail_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\n"
+#text_slow_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
 
 # repeat_fail.
 # default: ["1m", "5m", "10m"]
@@ -134,6 +160,12 @@ repeat_fail = ["1m", "5m", "10m"]
 # default: ["5m", "0"]
 # This is notification schedule for slowdown event. The same apply as for repeat_fail.
 repeat_slow = ["60s", "6m", "0"]
+
+# no_recovery.
+# default: false
+# true/false
+# If true no recovery message will be sent. Useful for cmd type.
+no_recovery = false
 
 [[check]]
 # There can be unlimited amount of [[check]] sections.

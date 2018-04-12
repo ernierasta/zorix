@@ -66,6 +66,7 @@ type NotifConfig struct {
 	IgnoreCert    bool `toml:"ignore_cert"`
 	From          string
 	To            []string
+	CmdTemplate   string `toml:"cmd"`
 	SubjectFail   string `toml:"subject_fail"`
 	SubjectSlow   string `toml:"subject_slow"`
 	SubjectFailOK string `toml:"subject_fail_ok"`
@@ -76,8 +77,10 @@ type NotifConfig struct {
 	TextSlowOK    string `toml:"text_slow_ok"`
 	Subject       string
 	Text          string
+	Cmd           string
 	RepeatFail    []Duration `toml:"repeat_fail"`
 	RepeatSlow    []Duration `toml:"repeat_slow"`
+	NoRecovery    bool       `toml:"no_recovery"`
 }
 
 // NotifiedCheck is CheckConfig with notification ID string.

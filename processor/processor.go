@@ -30,7 +30,6 @@ func New(resultChan chan shared.CheckConfig, notifChan chan shared.NotifiedCheck
 	for i, n := range notifications {
 		notes[n.ID] = &notifications[i]
 	}
-	log.Printf("%v", notes)
 
 	return &Processor{
 		resultChan:    resultChan,

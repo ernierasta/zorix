@@ -33,7 +33,7 @@ But do not worry, tests will come, adding tests will be good opportunity to refa
 - [ ] add OpenRC init, verify inits:
   - [x] runit: Void Linux,
   - [ ] openrc: Alpine Linux,
-  - [ ] sysvinit: Debian,
+  - [x] sysvinit: Debian,
   - [ ] systemd: Debian,
 -  [ ] Windows specific info/functions (will it currently run?):
    - [ ] run as service,
@@ -46,8 +46,10 @@ But do not worry, tests will come, adding tests will be good opportunity to refa
    - [x] environment variables in config,
    - [x] ignore self signed certs.
 - [x] implement jabber (xmpp) notifications,
-- [ ] implement cmd notifications (you can use any command as alerter),
+- [x] implement cmd notifications (you can use any command as alerter, can be used as to restart something ...),
+- [ ] implement actions (to make cmd notification type more obvious from config),
 - [x] add [global] section to config, allow defining notification templates there,
+- [x] reach templating options in config,
 - [ ] check code for any panics, allow them only on process start, but not when it is running (should be ok already),
 - [x] add ping check type,
 - [x] port testing,
