@@ -6,7 +6,7 @@
 # Required-Stop:        $remote_fs $syslog
 # Default-Start:        2 3 4 5
 # Default-Stop:
-# Short-Description:    Zorix monitoring system
+# Short-Description:    ZoriX monitoring system
 ### END INIT INFO
 
 set -e
@@ -18,7 +18,7 @@ USER=zorix
 ZORIX_OPTS="-c $CONFIG_FILE -l $LOG"
 PID_FILE=/run/zorix.pid
 
-# /etc/init.d/zorix: start and stop the Zorix process
+# /etc/init.d/zorix: start and stop the ZoriX process
 
 test -x $PROG || exit 0
 
@@ -37,7 +37,7 @@ chown $USER:$USER $LOG
 
 case "$1" in
   start)
-        log_daemon_msg "Starting Zorix monitoring" "zorix" || true
+        log_daemon_msg "Starting ZoriX monitoring" "zorix" || true
         if start-stop-daemon --start --quiet --oknodo --background --chuid $USER --make-pidfile --pidfile $PID_FILE --exec $PROG -- $ZORIX_OPTS; then
             log_end_msg 0 || true
         else
@@ -45,7 +45,7 @@ case "$1" in
         fi
         ;;
   stop)
-        log_daemon_msg "Stopping Zorix monitoring" "zorix" || true
+        log_daemon_msg "Stopping ZoriX monitoring" "zorix" || true
         if start-stop-daemon --stop --quiet --oknodo --pidfile $PID_FILE; then
             log_end_msg 0 || true
         else
@@ -54,7 +54,7 @@ case "$1" in
         ;;
 
   restart)
-        log_daemon_msg "Restarting Zorix monitoring" "zorix" || true
+        log_daemon_msg "Restarting ZoriX monitoring" "zorix" || true
         start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile $PID_FILE
         if start-stop-daemon --start --quiet --oknodo --background --chuid $USER --make-pidfile --pidfile $PID_FILE --exec $PROG -- $ZORIX_OPTS; then
             log_end_msg 0 || true

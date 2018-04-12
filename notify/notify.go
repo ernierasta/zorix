@@ -118,8 +118,8 @@ func (m *Manager) dispatch(c shared.CheckConfig, n *shared.NotifConfig) {
 func (m *Manager) TestAll() {
 	fc := shared.CheckConfig{}
 	for _, n := range m.notifications {
-		n.Subject = "Test notification from Zorix"
-		n.Text = "Hi comrade!\nIf you are reading this, all went good.\nWe are glad you want to give Zorix a try!\n\nWelcome in Zorix community.\n\n Yours Zorix"
+		n.Subject = "Test notification from ZoriX"
+		n.Text = "Hi comrade!\nIf you are reading this, all went good.\nWe are glad you want to give ZoriX a try!\n\nWelcome in ZoriX community.\n\n Yours ZoriX"
 		log.Infof("notify.TestAll: trying to send '%s', check if it arrived!\n", n.ID)
 		m.dispatch(fc, n)
 	}

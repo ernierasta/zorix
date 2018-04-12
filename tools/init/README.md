@@ -1,4 +1,4 @@
-Zorix init scripts
+ZoriX init scripts
 ==================
 
 In this directory you can find init scripts for different inits.

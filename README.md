@@ -1,4 +1,4 @@
-# Zorix
+# ZoriX
 
 _Warning! Currently major changes are happening, wait for first release!_
 
@@ -16,7 +16,7 @@ No agents, no dependencies, one binary.
 
 ## Status:
 
- Zorix is under development, but usable. Look at TODO list below to see planned features.
+ ZoriX is under development, but usable. Look at TODO list below to see planned features.
 
 ### No tests?
 
