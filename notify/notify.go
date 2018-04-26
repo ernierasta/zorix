@@ -2,6 +2,7 @@ package notify
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/ernierasta/zorix/notify/cmd"
 	"github.com/ernierasta/zorix/notify/jabber"
@@ -117,9 +118,12 @@ func (m *Manager) dispatch(c shared.CheckConfig, n *shared.NotifConfig) {
 //TestAll sends test message to all configured notifications.
 func (m *Manager) TestAll() {
 	fc := shared.CheckConfig{}
+	fc.Timestamp = time.Now()
+
 	for _, n := range m.notifications {
 		n.Subject = "Test notification from ZoriX"
 		n.Text = "Hi comrade!\nIf you are reading this, all went good.\nWe are glad you want to give ZoriX a try!\n\nWelcome in ZoriX community.\n\n Yours ZoriX"
+		n.Cmd = "echo \"It works!\" > /tmp/zorix.test"
 		log.Infof("notify.TestAll: trying to send '%s', check if it arrived!\n", n.ID)
 		m.dispatch(fc, n)
 	}

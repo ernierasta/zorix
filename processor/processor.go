@@ -50,7 +50,8 @@ func (p *Processor) Listen() {
 			case c := <-p.resultChan:
 				c = p.analyze(c)
 				p.updateCheckResult(c)
-				log.WithFields(log.Fields{"id": c.ID, "check": c.Check, "code:": c.ReturnedCode, "time": c.ReturnedTime, "fails": p.checks[c.ID].Fails, "allowed_fails": c.AllowedFails, "slows": p.checks[c.ID].Slowdowns, "allowed_slows": c.AllowedSlows}).Debug("p.Listen: new result comes to precessor")
+				//log.WithFields(log.Fields{"id": c.ID, "check": c.Check, "code:": c.ReturnedCode, "time": c.ReturnedTime, "fails": p.checks[c.ID].Fails, "allowed_fails": c.AllowedFails, "slows": p.checks[c.ID].Slowdowns, "allowed_slows": c.AllowedSlows}).Debug("p.Listen: new result comes to precessor")
+				log.WithFields(log.Fields{"check": c.Check}).Infof("t: %d, c: %d, fails: %d, slows: %d", c.ReturnedTime, c.ReturnedCode, p.checks[c.ID].Fails, p.checks[c.ID].Slowdowns)
 				//log.Debug("response:" + c.Response)
 				p.notify(c.ID)
 			}
@@ -195,8 +196,8 @@ func (p *Processor) notifyGenerator(cID string, isRecovery bool) {
 	}
 }
 
-// notificationTimer is running as goroutine for every CheckConfig. There is always
-// only one instance for CheckConfig.
+// notificationTimer is running as goroutine for every CheckConfigs notification. There is always
+// as many instances as CheckConfig has notifications set.
 // It takes CheckConfig and schedule in form [ 1m, 5m, 10m ], where last interval is repeated until the end.
 // If last interval is 0s, then it will stop notifications and terminate goroutine.
 // Recovery message will be sent and will also terminate goroutine.
@@ -225,7 +226,9 @@ func (p *Processor) notificationTimer(cID string, schedule []shared.Duration, nI
 				log.Debug("p.notificationTimer: sending recovery to channel")
 				p.mutex.Lock()
 				notifChan <- shared.NotifiedCheck{CheckConfig: *p.checks[cID], NotificationID: nID}
-				timer.Stop()
+				if timer != nil {
+					timer.Stop()
+				}
 				p.mutex.Unlock()
 				log.Debugf("p.notificationTimer: recovery message received for %s (notification: %s)", cID, nID)
 				return

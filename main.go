@@ -24,7 +24,7 @@ var (
 func init() {
 	flag.StringVarP(&conf, "config", "c", "config.toml", "config file location")
 	flag.StringVarP(&logf, "log", "l", "", "if you want to log , point it to file")
-	flag.BoolVarP(&testf, "test", "t", false, "test notification configuration")
+	flag.BoolVarP(&testf, "test", "t", false, "test notification configuration(cmd writes file /tmp/zorix.test)")
 	flag.Parse()
 }
 
@@ -39,7 +39,7 @@ func main() {
 	}
 
 	logger.Set(logf, c.Global.Loglevel)
-	log.Debug("Config loaded. Starting ...")
+	log.Warn("Config loaded ok. Starting ...")
 
 	err = c.Validate()
 	if err != nil {
@@ -77,6 +77,7 @@ func main() {
 	chm.Register()
 	chm.Run()
 
+	log.Warn("All ok. Checks are runing.")
 	for {
 		time.Sleep(1 * time.Second)
 	}

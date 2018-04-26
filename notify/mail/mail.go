@@ -3,8 +3,8 @@ package mail
 import (
 	"crypto/tls"
 	"encoding/base64"
-	"errors"
 	"fmt"
+	"net"
 	"net/mail"
 	"net/smtp"
 	"os"
@@ -55,9 +55,16 @@ func (m *Mail) Send(c shared.CheckConfig, n shared.NotifConfig) error {
 	message += "\r\n" + base64.StdEncoding.EncodeToString([]byte(n.Text))
 	err := sendMail(n.Server, n.Port, auth, n.IgnoreCert, n.From, n.To, []byte(message))
 
+	p := "" // just for logging
+	if len(n.Pass) >= 4 {
+		p = n.Pass[0:3]
+	} else {
+		p = n.Pass
+	}
+
 	maillog := log.WithFields(log.Fields{
 		"user":       n.User,
-		"pass":       n.Pass[0:3],
+		"pass":       p,
 		"server":     n.Server,
 		"port":       n.Port,
 		"ignorecert": n.IgnoreCert,
@@ -103,11 +110,18 @@ func encodeRFC2047(s string) string {
 //
 // sendMail ripped from net/smtp package, added ability to send mails
 // via TLS (port: 465).
-// fixed potential MITM atack
-// added option to ignore certificate
+//
+// Changes for zoriX:
+//  - fixed potential MITM atack
+//  - added option to ignore certificate
+//  - fixed stuck connection if server has port closed (added timeout)
 func sendMail(host string, port int, a smtp.Auth, ignoreCert bool, from string, to []string, msg []byte) error {
 	if err := validateLine(from); err != nil {
 		return err
+	}
+
+	if len(to) == 0 {
+		return fmt.Errorf("smtp: no recepients given")
 	}
 	for _, recp := range to {
 		if err := validateLine(recp); err != nil {
@@ -119,12 +133,18 @@ func sendMail(host string, port int, a smtp.Auth, ignoreCert bool, from string, 
 
 	c := &smtp.Client{}
 
+	// raw network connection with timeout
+	netConn, err := net.DialTimeout("tcp", hostPort, 10*time.Second)
+	if err != nil {
+		return err
+	}
+
 	if port == 465 {
 		tlsconfig := &tls.Config{
 			InsecureSkipVerify: ignoreCert,
 			ServerName:         host,
 		}
-		conn, err := tls.Dial("tcp", hostPort, tlsconfig)
+		conn := tls.Client(netConn, tlsconfig)
 		if err != nil {
 			return err
 		}
@@ -132,9 +152,9 @@ func sendMail(host string, port int, a smtp.Auth, ignoreCert bool, from string, 
 		if err != nil {
 			return err
 		}
-	} else {
+	} else { // using submission
 		var err error
-		c, err = smtp.Dial(hostPort)
+		c, err = smtp.NewClient(netConn, host)
 		if err != nil {
 			return err
 		}
@@ -158,7 +178,7 @@ func sendMail(host string, port int, a smtp.Auth, ignoreCert bool, from string, 
 	}
 	if a != nil {
 		if ok, _ := c.Extension("AUTH"); !ok {
-			return errors.New("smtp: server doesn't support AUTH")
+			return fmt.Errorf("smtp: server doesn't support AUTH")
 		}
 		if err = c.Auth(a); err != nil {
 			return err
@@ -196,7 +216,7 @@ func check(err error) {
 // validateLine checks to see if a line has CR or LF as per RFC 5321
 func validateLine(line string) error {
 	if strings.ContainsAny(line, "\n\r") {
-		return errors.New("smtp: A line must not contain CR or LF")
+		return fmt.Errorf("smtp: A line must not contain CR or LF")
 	}
 	return nil
 }

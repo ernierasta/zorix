@@ -113,23 +113,17 @@ func (cm *Manager) Run() {
 //A time ticker writes data to request channel for every request.CheckEvery seconds
 func (cm *Manager) createTicker(c shared.CheckConfig, checksChan chan shared.CheckConfig) {
 	ticker := time.NewTicker(c.Repeat.Duration)
-	quit := make(chan struct{})
 	for {
-		select {
-		case <-ticker.C:
-			checksChan <- c
-		case <-quit:
-			ticker.Stop()
-			return
-		}
+		checksChan <- c
+		<-ticker.C
 	}
 }
 
 // startWorker will realize actual check. This method should run as goroutine.
 // Method will call specific worker implementation and send data to resultsChan.
-func (cm *Manager) startWorker(id string, worker shared.Worker, input, output chan shared.CheckConfig) {
+func (cm *Manager) startWorker(id string, worker shared.Worker, checksChan, resultsChan chan shared.CheckConfig) {
 	log.WithFields(log.Fields{"worker_id": id}).Info("starting some work ...")
-	for c := range input {
+	for c := range checksChan {
 		code, body, time, err := worker.Send(c)
 		c.ReturnedCode = code
 		c.ReturnedTime = time
@@ -137,6 +131,6 @@ func (cm *Manager) startWorker(id string, worker shared.Worker, input, output ch
 		if err != nil {
 			c.Error = err
 		}
-		output <- c
+		resultsChan <- c
 	}
 }

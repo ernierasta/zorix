@@ -20,7 +20,7 @@ No agents, no dependencies, one binary.
 
 ### No tests?
 
-Yes, not a line. I find testing very important. Some of my projects are TDD (or almost TDD). I needed this ASAP.
+~~Yes, not a line~~. There are some integration tests, but they are there just to simplify development, real tests will come. I find testing very important. Some of my projects are TDD (or almost TDD). I needed this ASAP.
 But do not worry, tests will come, adding tests will be good opportunity to refactor where needed. 
 
 ## TODO:
@@ -77,7 +77,7 @@ I found some interesting projects (some of them mentioned already), but at the e
 
 ### Name ... it resembles zabbix ...
 
-Yes, that is what I wanted. "Zori" is something like my trademark and at the past adding "x" at the end of program name makes application instantly cool (like nowadays "d"?), so `zorix` it be!
+Yes, but you should read it like zori-EX. "Zori" is something like my trademark and at the past adding "x" at the end of program name makes application instantly cool (like nowadays "d"?), so `zorix` it be!
 Reference to `zabbix` is intentional despite the fact, that `zorix` is incomparably simpler, less powerful and has completely different design.
 
 ### License

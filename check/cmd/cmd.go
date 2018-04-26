@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ernierasta/zorix/shared"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -32,21 +33,15 @@ func New() *Cmd {
 //   - non zero status: 500
 func (w *Cmd) Send(c shared.CheckConfig) (int, string, int64, error) {
 	t0 := time.Now()
-	cmd := exec.Command(c.Check, strings.Split(c.Params, " ")...)
-	err := cmd.Start()
-	if err != nil {
-		return 404, "", 0, fmt.Errorf("cmd.Send: problem starting command '%s', params: '%s', err: %v", c.Check, c.Params, err)
-	}
-	err = cmd.Wait()
+	cl := c.Check + " " + c.Params
+	o, err := exec.Command("sh", "-c", cl).Output()
 	duration := time.Since(t0)
+	outs := strings.TrimSpace(string(o))
+	log.Debugf("cmd.Send: output: %s", o)
 	if err != nil {
-		return 500, "", 0, fmt.Errorf("cmd.Send: process '%s', params: '%s',  returned non zero status, err: %v", c.Check, c.Params, err)
-	}
-	out, err := cmd.Output()
-	if err != nil {
-		return 500, "", 0, fmt.Errorf("cmd.Send: process '%s', params: '%s', problem retrieving command output, err %v", c.Check, c.Params, err)
+		return 500, outs, duration.Nanoseconds() / 1000 / 1000, fmt.Errorf("cmd.Send: process 'sh -c %q',  returned non zero status, err: %v", cl, err)
 	}
 
-	return 200, string(out), duration.Nanoseconds() / 1000 / 1000, nil
+	return 200, outs, duration.Nanoseconds() / 1000 / 1000, nil
 
 }
