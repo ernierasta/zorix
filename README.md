@@ -49,7 +49,7 @@ But do not worry, tests will come, adding tests will be good opportunity to refa
 - [x] implement cmd notifications (you can use any command as alerter, can be used as to restart something ...),
 - [ ] implement actions (to make cmd notification type more obvious from config),
 - [x] add [global] section to config, allow defining notification templates there,
-- [x] reach templating options in config,
+- [x] rich templating options in config,
 - [ ] check code for any panics, allow them only on process start, but not when it is running (should be ok already),
 - [x] add ping check type,
 - [x] port testing,

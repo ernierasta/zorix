@@ -84,6 +84,7 @@ func (m *Manager) setSubjectAndText(c shared.CheckConfig, n *shared.NotifConfig)
 		n.Subject = template.Parse(n.SubjectSlowOK, c, n.ID, "subject_ok")
 		n.Text = template.Parse(n.TextSlowOK, c, n.ID, "text_ok")
 	default:
+		c.Response = "removed output"
 		log.Errorf("unknown notification, no known condition found, %+v", c)
 		n.Subject = "Unknown notification"
 		n.Text = fmt.Sprintf("Programming error, please send bug report containing"+
