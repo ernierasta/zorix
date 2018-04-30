@@ -142,56 +142,43 @@ func (p *Processor) notify(id string) {
 	if len(p.checks[id].NotifyFail) > 0 {
 		if p.checks[id].Fails == p.checks[id].AllowedFails && p.checks[id].Fails != 0 {
 			log.Debugf("p.notify: f == allowed & not 0, %s sent to generator", id)
-			p.notifyGenerator(id, false)
+			p.notifyGenerator(*p.checks[id], false)
 		} else if p.checks[id].RecoveryFailure {
 			log.Debugf("p.notify: recovery == true, %s sent to generator", id)
-			p.notifyGenerator(id, true)
+			p.notifyGenerator(*p.checks[id], true)
 		}
 	}
 
 	if len(p.checks[id].NotifySlow) > 0 {
 		if p.checks[id].Slowdowns == p.checks[id].AllowedSlows && p.checks[id].Slowdowns != 0 {
-			p.notifyGenerator(id, false)
+			p.notifyGenerator(*p.checks[id], false)
 		} else if p.checks[id].RecoverySlow {
-			p.notifyGenerator(id, true)
+			p.notifyGenerator(*p.checks[id], true)
 		}
 	}
 }
 
 // notifyGenerator will create notification for every required notification type
 // (f.e: mail, jabber, ...)
-func (p *Processor) notifyGenerator(cID string, isRecovery bool) {
+// note, that notifyGenerator takes CheckConfig by value, so it copied. It is
+// intensional, to be sure, that struct will not change before (if) notified.
+func (p *Processor) notifyGenerator(c shared.CheckConfig, isRecovery bool) {
+	notifs := p.notifsCleanup(&c)
+	for _, nID := range notifs {
 
-	source := []string{}
-	if p.checks[cID].Failure || p.checks[cID].RecoveryFailure {
-		source = p.validateNotifyIDList(p.checks[cID].NotifyFail)
-	} else if p.checks[cID].Slow || p.checks[cID].RecoverySlow {
-		source = p.validateNotifyIDList(p.checks[cID].NotifySlow)
-	} else {
-		log.Errorf("processor.notifyGenerator: unknown failure type (not Fail or Slow)")
-	}
-
-	for _, nID := range source {
-
-		schedule := []shared.Duration{}
-		if p.checks[cID].Failure || p.checks[cID].RecoveryFailure {
-			schedule = p.notifications[nID].RepeatFail
-		} else {
-			schedule = p.notifications[nID].RepeatSlow //TODO: segfault
-		}
-
-		cnID := fmt.Sprintf("%s_%s", cID, nID) // make unique ID string for this notification
+		schedule := p.schedule(&c, nID)
+		cnID := fmt.Sprintf("%s_%s", c.ID, nID) // make unique ID string for this notification
 		if isRecovery {
 			// if recovery is BEFORE creating goroutine, it will stuck, send only if channel created = goroutine exists
 			if _, ok := p.recoveryChans[cnID]; ok {
+				log.Debugf("p.notifyGenerator: recovery message for %s (notification: %s) sending to the channel: recoveryChans[%s]", c.ID, nID, cnID)
 				p.recoveryChans[cnID] <- true // every CheckConfig's notification has uniq quit channel
-				log.Debugf("p.notifyGenerator: recovery message for %s (notification: %s) sent to channel: recoveryChans[%s]", cID, nID, cnID)
 			}
 		} else {
-			p.notifChan <- shared.NotifiedCheck{CheckConfig: *p.checks[cID], NotificationID: nID} // send first notification directly
+			log.Debugf("p.notifyGenerator: start go notificationTimer with recoveryChans[%s] for %s (notification: %s)", cnID, c.ID, nID)
+			p.notifChan <- shared.NotifiedCheck{CheckConfig: c, NotificationID: nID} // send first notification directly
 			p.recoveryChans[cnID] = make(chan bool, 1)
-			log.Debugf("p.notifyGenerator: start go notificationTimer with recoveryChans[%s] for %s (notification: %s)", cnID, cID, nID)
-			go p.notificationTimer(cID, schedule, p.notifications[nID].ID, p.notifChan, p.recoveryChans[cnID])
+			go p.notificationTimer(&c, schedule, p.notifications[nID].ID, p.notifChan, p.recoveryChans[cnID])
 		}
 	}
 }
@@ -201,7 +188,7 @@ func (p *Processor) notifyGenerator(cID string, isRecovery bool) {
 // It takes CheckConfig and schedule in form [ 1m, 5m, 10m ], where last interval is repeated until the end.
 // If last interval is 0s, then it will stop notifications and terminate goroutine.
 // Recovery message will be sent and will also terminate goroutine.
-func (p *Processor) notificationTimer(cID string, schedule []shared.Duration, nID string, notifChan chan<- shared.NotifiedCheck, recovery chan bool) {
+func (p *Processor) notificationTimer(c *shared.CheckConfig, schedule []shared.Duration, nID string, notifChan chan<- shared.NotifiedCheck, recovery chan bool) {
 	var timer *time.Timer
 	//for _, interval := range schedule {
 	cnt := 0
@@ -225,12 +212,12 @@ func (p *Processor) notificationTimer(cID string, schedule []shared.Duration, nI
 			case <-recovery:
 				log.Debug("p.notificationTimer: sending recovery to channel")
 				p.mutex.Lock()
-				notifChan <- shared.NotifiedCheck{CheckConfig: *p.checks[cID], NotificationID: nID}
+				notifChan <- shared.NotifiedCheck{CheckConfig: *c, NotificationID: nID}
 				if timer != nil {
 					timer.Stop()
 				}
 				p.mutex.Unlock()
-				log.Debugf("p.notificationTimer: recovery message received for %s (notification: %s)", cID, nID)
+				log.Debugf("p.notificationTimer: recovery message received for %s (notification: %s)", c.ID, nID)
 				return
 			default:
 				if runTimer {
@@ -239,9 +226,9 @@ func (p *Processor) notificationTimer(cID string, schedule []shared.Duration, nI
 					go func() { // we need to be able to cancel timer if recovery came
 						runTimer = false
 						<-timer.C
-						log.Debugf("p.notificationTimer: sending message %s(nID: %s) to notifChan", cID, nID)
+						log.Debugf("p.notificationTimer: sending message %s(nID: %s) to notifChan", c.ID, nID)
 						p.mutex.Lock()
-						notifChan <- shared.NotifiedCheck{CheckConfig: *p.checks[cID], NotificationID: nID}
+						notifChan <- shared.NotifiedCheck{CheckConfig: *c, NotificationID: nID}
 						p.mutex.Unlock()
 						sent = true
 					}()
@@ -249,13 +236,35 @@ func (p *Processor) notificationTimer(cID string, schedule []shared.Duration, nI
 				}
 			}
 			if sent {
-				log.Debugf("notificationTimer: sent problem notification for %s (notification: %s)", cID, nID)
+				log.Debugf("notificationTimer: sent problem notification for %s (notification: %s)", c.ID, nID)
 				log.Debug("notificationTimer: breaking from inner for loop")
 				break
 			}
 			time.Sleep(1 * time.Second)
 		}
 	}
+}
+
+// schedule returns notification schedule based on failure type (Slow or Fail)
+func (p *Processor) schedule(c *shared.CheckConfig, nID string) []shared.Duration {
+	if c.Failure || c.RecoveryFailure {
+		return p.notifications[nID].RepeatFail
+	}
+	return p.notifications[nID].RepeatSlow
+}
+
+// notifsCleanup validates all defined notifications and returns slice of
+// valid notifications based on failure type: Slow, Fail
+func (p *Processor) notifsCleanup(c *shared.CheckConfig) []string {
+	// check notification list, clean it if needed
+	if c.Failure || c.RecoveryFailure {
+		return p.validateNotifyIDList(c.NotifyFail)
+	} else if c.Slow || c.RecoverySlow {
+		return p.validateNotifyIDList(c.NotifySlow)
+	}
+
+	log.Errorf("processor.notifyGenerator: unknown failure type (not Fail or Slow)")
+	return []string{}
 }
 
 // validateNotifyIDList checks if all notification in slice
