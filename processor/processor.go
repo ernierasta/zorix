@@ -178,7 +178,7 @@ func (p *Processor) notifyGenerator(c shared.CheckConfig, isRecovery bool) {
 			log.Debugf("p.notifyGenerator: start go notificationTimer with recoveryChans[%s] for %s (notification: %s)", cnID, c.ID, nID)
 			p.notifChan <- shared.NotifiedCheck{CheckConfig: c, NotificationID: nID} // send first notification directly
 			p.recoveryChans[cnID] = make(chan bool, 1)
-			go p.notificationTimer(&c, schedule, p.notifications[nID].ID, p.notifChan, p.recoveryChans[cnID])
+			go p.notificationTimer(c.ID, schedule, p.notifications[nID].ID, p.notifChan, p.recoveryChans[cnID])
 		}
 	}
 }
@@ -188,7 +188,13 @@ func (p *Processor) notifyGenerator(c shared.CheckConfig, isRecovery bool) {
 // It takes CheckConfig and schedule in form [ 1m, 5m, 10m ], where last interval is repeated until the end.
 // If last interval is 0s, then it will stop notifications and terminate goroutine.
 // Recovery message will be sent and will also terminate goroutine.
-func (p *Processor) notificationTimer(c *shared.CheckConfig, schedule []shared.Duration, nID string, notifChan chan<- shared.NotifiedCheck, recovery chan bool) {
+//
+// TODO: getting c from p.checks is problematic, it can be already in different state (f.e.: RecoveryFailure: false for recovery message), we also cannot pass c here, because it will be reused for every notifications.
+// Solutions:
+// - make notifications concurent (channel will never be full)
+// - use additional chanell here and send all check results after 1. notification to it, then check for Recovery check result, and keep it until we are sure notifications has been sent ... sounds overcomplicated
+// Spliting CheckConfig and result data will solve this?
+func (p *Processor) notificationTimer(cID string, schedule []shared.Duration, nID string, notifChan chan<- shared.NotifiedCheck, recovery chan bool) {
 	var timer *time.Timer
 	//for _, interval := range schedule {
 	cnt := 0
@@ -212,12 +218,12 @@ func (p *Processor) notificationTimer(c *shared.CheckConfig, schedule []shared.D
 			case <-recovery:
 				log.Debug("p.notificationTimer: sending recovery to channel")
 				p.mutex.Lock()
-				notifChan <- shared.NotifiedCheck{CheckConfig: *c, NotificationID: nID}
+				notifChan <- shared.NotifiedCheck{CheckConfig: *p.checks[cID], NotificationID: nID}
 				if timer != nil {
 					timer.Stop()
 				}
 				p.mutex.Unlock()
-				log.Debugf("p.notificationTimer: recovery message received for %s (notification: %s)", c.ID, nID)
+				log.Debugf("p.notificationTimer: recovery message received for %s (notification: %s)", cID, nID)
 				return
 			default:
 				if runTimer {
@@ -226,9 +232,9 @@ func (p *Processor) notificationTimer(c *shared.CheckConfig, schedule []shared.D
 					go func() { // we need to be able to cancel timer if recovery came
 						runTimer = false
 						<-timer.C
-						log.Debugf("p.notificationTimer: sending message %s(nID: %s) to notifChan", c.ID, nID)
+						log.Debugf("p.notificationTimer: sending message %s(nID: %s) to notifChan", cID, nID)
 						p.mutex.Lock()
-						notifChan <- shared.NotifiedCheck{CheckConfig: *c, NotificationID: nID}
+						notifChan <- shared.NotifiedCheck{CheckConfig: *p.checks[cID], NotificationID: nID}
 						p.mutex.Unlock()
 						sent = true
 					}()
@@ -236,7 +242,7 @@ func (p *Processor) notificationTimer(c *shared.CheckConfig, schedule []shared.D
 				}
 			}
 			if sent {
-				log.Debugf("notificationTimer: sent problem notification for %s (notification: %s)", c.ID, nID)
+				log.Debugf("notificationTimer: sent problem notification for %s (notification: %s)", cID, nID)
 				log.Debug("notificationTimer: breaking from inner for loop")
 				break
 			}
