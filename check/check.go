@@ -17,10 +17,8 @@ type Manager struct {
 	checks                   []shared.CheckConfig
 	workers                  int
 	requestedWorkers         map[string]worker
+	quitTickerChannels       map[string]chan bool
 	resultsChan              chan shared.CheckConfig
-	webChan, iwebChan        chan shared.CheckConfig
-	pingChan, cmdChan        chan shared.CheckConfig
-	portChan                 chan shared.CheckConfig
 	httpTimeout, pingTimeout shared.Duration
 	portTimeout              shared.Duration
 }
@@ -32,35 +30,29 @@ type Manager struct {
 // Number of checks using this type of worker is used to determine how many
 // workers of particular type are needed).
 //
+// It you adding new worker this is the only place you need to add code.
+//
 // This function is also guard, which exit apllication if unknown type is given.
 func (cm *Manager) registerWorker(t string) {
 	c := 1
 	if w, ok := cm.requestedWorkers[t]; ok {
-		c = w.Checks + 1
+		c = w.checks + 1
 	}
 
 	switch t {
 	case "web":
-		cm.requestedWorkers["web"] = worker{Worker: web.New(cm.httpTimeout, false), Chan: cm.webChan, Checks: c}
+		cm.requestedWorkers["web"] = worker{worker: web.New(cm.httpTimeout, false), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
 	case "insecureweb":
-		cm.requestedWorkers["insecureweb"] = worker{Worker: web.New(cm.httpTimeout, true), Chan: cm.iwebChan, Checks: c}
+		cm.requestedWorkers["insecureweb"] = worker{worker: web.New(cm.httpTimeout, true), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
 	case "cmd":
-		cm.requestedWorkers["cmd"] = worker{Worker: cmd.New(), Chan: cm.cmdChan, Checks: c}
+		cm.requestedWorkers["cmd"] = worker{worker: cmd.New(), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
 	case "ping":
-		cm.requestedWorkers["ping"] = worker{Worker: ping.New(cm.pingTimeout), Chan: cm.pingChan, Checks: c}
+		cm.requestedWorkers["ping"] = worker{worker: ping.New(cm.pingTimeout), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
 	case "port":
-		cm.requestedWorkers["port"] = worker{Worker: port.New(cm.portTimeout), Chan: cm.portChan, Checks: c}
+		cm.requestedWorkers["port"] = worker{worker: port.New(cm.portTimeout), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
 	default:
 		log.Fatalf("check.registerWorker: unknown worker type: '%s', check config file.", t)
 	}
-}
-
-// worker is helper type, every worker type has its own implementation,
-// job channel and amount of checks processed by this type of worker.
-type worker struct {
-	Worker shared.Worker
-	Chan   chan shared.CheckConfig
-	Checks int
 }
 
 // NewManager initializes Manager.
@@ -69,18 +61,14 @@ type worker struct {
 // for example, 1 means: 1 web worker, 1 ping worker, ...
 func NewManager(cc shared.CMConfig) *Manager {
 	return &Manager{
-		checks:           cc.Checks,
-		workers:          cc.Workers,
-		requestedWorkers: make(map[string]worker),
-		resultsChan:      cc.ResultsChan,
-		webChan:          make(chan shared.CheckConfig, len(cc.Checks)),
-		iwebChan:         make(chan shared.CheckConfig, len(cc.Checks)),
-		cmdChan:          make(chan shared.CheckConfig, len(cc.Checks)),
-		pingChan:         make(chan shared.CheckConfig, len(cc.Checks)),
-		portChan:         make(chan shared.CheckConfig, len(cc.Checks)),
-		httpTimeout:      cc.HTTPTimeout,
-		pingTimeout:      cc.PingTimeout,
-		portTimeout:      cc.PortTimeout,
+		checks:             cc.Checks,
+		workers:            cc.Workers,
+		requestedWorkers:   make(map[string]worker),
+		quitTickerChannels: make(map[string]chan bool),
+		resultsChan:        cc.ResultsChan,
+		httpTimeout:        cc.HTTPTimeout,
+		pingTimeout:        cc.PingTimeout,
+		portTimeout:        cc.PortTimeout,
 	}
 }
 
@@ -89,7 +77,6 @@ func NewManager(cc shared.CMConfig) *Manager {
 func (cm *Manager) Register() {
 	for _, c := range cm.checks {
 		cm.registerWorker(c.Type)
-		//no checking on start: log.Println(cm.requestedWorkers[c.Type].Worker.Send(c))
 	}
 }
 
@@ -97,34 +84,55 @@ func (cm *Manager) Register() {
 func (cm *Manager) Run() {
 
 	// for every defined check create ticker, which will periodically create jobs for workers
-	// send job to appropriate channel (webChan, cmdChan, ...)
+	// send job to appropriate channel
 	for _, c := range cm.checks {
-		go cm.createTicker(c, cm.requestedWorkers[c.Type].Chan)
+		cm.quitTickerChannels[c.ID] = make(chan bool) // quit channel is unique for every ticker
+		go cm.runTicker(c, cm.requestedWorkers[c.Type].typeChan, cm.quitTickerChannels[c.ID])
 	}
 
 	for name, wrk := range cm.requestedWorkers {
-		for w := 1; w <= cm.workers && w <= wrk.Checks; w++ {
+		for w := 1; w <= cm.workers && w <= wrk.checks; w++ {
 			workerName := name + strconv.Itoa(w)
-			go cm.startWorker(workerName, wrk.Worker, wrk.Chan, cm.resultsChan)
+			go wrk.start(workerName, cm.resultsChan)
 		}
 	}
 }
 
-//A time ticker writes data to request channel for every request.CheckEvery seconds
-func (cm *Manager) createTicker(c shared.CheckConfig, checksChan chan shared.CheckConfig) {
+// runTicker writes data to request channel for every request.
+// It periodically sends CheckConfig to appropriate channel.
+func (cm *Manager) runTicker(c shared.CheckConfig, typeChan chan shared.CheckConfig, quitChan chan bool) {
+	if c.Repeat.Duration <= 0 {
+		log.WithFields(log.Fields{"check_id": c.ID, "repeat": c.Repeat}).Error("check.runTicker: non positive repeat interval, setting 60s.")
+		c.Repeat.ParseDuration("1m")
+	}
 	ticker := time.NewTicker(c.Repeat.Duration)
 	for {
-		checksChan <- c
-		<-ticker.C
+		select {
+		case <-quitChan:
+			ticker.Stop()
+			return
+		default:
+			typeChan <- c
+			<-ticker.C
+
+		}
 	}
 }
 
-// startWorker will realize actual check. This method should run as goroutine.
+// worker is helper type, every worker type has its own implementation,
+// job channel and amount of checks processed by this type of worker.
+type worker struct {
+	worker   shared.Worker
+	typeChan chan shared.CheckConfig
+	checks   int
+}
+
+// start will realize actual check. This method should run as goroutine.
 // Method will call specific worker implementation and send data to resultsChan.
-func (cm *Manager) startWorker(id string, worker shared.Worker, checksChan, resultsChan chan shared.CheckConfig) {
+func (w *worker) start(id string, resultsChan chan shared.CheckConfig) {
 	log.WithFields(log.Fields{"worker_id": id}).Info("starting some work ...")
-	for c := range checksChan {
-		code, body, time, err := worker.Send(c)
+	for c := range w.typeChan {
+		code, body, time, err := w.worker.Send(c)
 		c.ReturnedCode = code
 		c.ReturnedTime = time
 		c.Response = body
