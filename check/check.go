@@ -1,6 +1,7 @@
 package check
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -36,22 +37,24 @@ type Manager struct {
 func (cm *Manager) registerWorker(t string) {
 	c := 1
 	if w, ok := cm.requestedWorkers[t]; ok {
-		c = w.checks + 1
-	}
+		w.checks = w.checks + 1
+		cm.requestedWorkers[t] = w
+	} else {
+		switch t {
+		case "web":
+			cm.requestedWorkers["web"] = worker{worker: web.New(cm.httpTimeout, false), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
+		case "insecureweb":
+			cm.requestedWorkers["insecureweb"] = worker{worker: web.New(cm.httpTimeout, true), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
+		case "cmd":
+			cm.requestedWorkers["cmd"] = worker{worker: cmd.New(), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
+		case "ping":
+			cm.requestedWorkers["ping"] = worker{worker: ping.New(cm.pingTimeout), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
+		case "port":
+			cm.requestedWorkers["port"] = worker{worker: port.New(cm.portTimeout), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
+		default:
+			log.Fatalf("check.registerWorker: unknown worker type: '%s', check config file.", t)
+		}
 
-	switch t {
-	case "web":
-		cm.requestedWorkers["web"] = worker{worker: web.New(cm.httpTimeout, false), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
-	case "insecureweb":
-		cm.requestedWorkers["insecureweb"] = worker{worker: web.New(cm.httpTimeout, true), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
-	case "cmd":
-		cm.requestedWorkers["cmd"] = worker{worker: cmd.New(), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
-	case "ping":
-		cm.requestedWorkers["ping"] = worker{worker: ping.New(cm.pingTimeout), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
-	case "port":
-		cm.requestedWorkers["port"] = worker{worker: port.New(cm.portTimeout), typeChan: make(chan shared.CheckConfig, len(cm.checks)), checks: c}
-	default:
-		log.Fatalf("check.registerWorker: unknown worker type: '%s', check config file.", t)
 	}
 }
 
@@ -90,10 +93,13 @@ func (cm *Manager) Run() {
 		go cm.runTicker(c, cm.requestedWorkers[c.Type].typeChan, cm.quitTickerChannels[c.ID])
 	}
 
+	fmt.Println(cm.requestedWorkers)
+
 	for name, wrk := range cm.requestedWorkers {
 		for w := 1; w <= cm.workers && w <= wrk.checks; w++ {
 			workerName := name + strconv.Itoa(w)
-			go wrk.start(workerName, cm.resultsChan)
+			log.Debugf("starting worker: %s, typeChan: %v, w: %v", workerName, wrk.typeChan, &wrk.worker)
+			go startWorker(workerName, wrk.worker, wrk.typeChan, cm.resultsChan)
 		}
 	}
 }
@@ -127,12 +133,12 @@ type worker struct {
 	checks   int
 }
 
-// start will realize actual check. This method should run as goroutine.
+// startWorker will realize actual check. This method should run as goroutine.
 // Method will call specific worker implementation and send data to resultsChan.
-func (w *worker) start(id string, resultsChan chan shared.CheckConfig) {
-	log.WithFields(log.Fields{"worker_id": id}).Info("starting some work ...")
-	for c := range w.typeChan {
-		code, body, time, err := w.worker.Send(c)
+func startWorker(id string, w shared.Worker, typeChan, resultsChan chan shared.CheckConfig) {
+	log.WithFields(log.Fields{"worker_id": id, "chan": typeChan}).Info("starting some work ...")
+	for c := range typeChan {
+		code, body, time, err := w.Send(c)
 		c.ReturnedCode = code
 		c.ReturnedTime = time
 		c.Response = body
