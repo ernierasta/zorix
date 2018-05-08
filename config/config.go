@@ -2,9 +2,7 @@ package config
 
 import (
 	"fmt"
-	"time"
 
-	"github.com/ernierasta/zorix/shared"
 	"github.com/ernierasta/zorix/template"
 
 	"github.com/BurntSushi/toml"
@@ -12,54 +10,81 @@ import (
 
 const (
 	Loglevel    = "warn"
-	HTTPTimeout = "60s"
-	PingTimeout = "60s"
-	PortTimeout = "5s"
+	HTTPTimeout = 60
+	PingTimeout = 60
+	PortTimeout = 10
 
-	CheckType         = "web"
-	CheckMethod       = "GET"
-	CheckRepeat       = "60s"
-	CheckExpectedCode = 200
-	CheckExpectedTime = 1000
-	CheckAllowedSlows = 3
-	CheckAllowedFails = 1
+	CheckMethod         = "GET"
+	CheckRepeatInterval = 60
+	CheckAllowedSlows   = 2
+	CheckAllowedFails   = 0
+
+	WebExpectedCode = 200
+	WebExpectedTime = 1000
+
+	PortAllowedFails = 1
+	PortAllowedSlows = 3
+	PortExpectedTime = 150
+	PortExpectedCode = 200
+
+	PingAllowedFails = 1
+	PingAllowedSlows = 3
+	PingExpectedTime = 150
+	PingExpectedCode = 0
+
+	CmdExpectedTime = 5000
+	CmdExpectedCode = 0
 
 	NotifyType          = "mail"
-	NotifySubjectFail   = "{check}{params} problem"
-	NotifySubjectSlow   = "{check}{params} slow"
-	NotifySubjectFailOK = "{check}{params} ok"
-	NotifySubjectSlowOK = "{check}{params} ok"
-	NotifyTextFail      = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\nError: {error}\n"
-	NotifyTextSlow      = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
-	NotifyTextFailOK    = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\n"
-	NotifyTextSlowOK    = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
+	NotifyFailSubject   = "{check}{params} problem"
+	NotifySlowSubject   = "{check}{params} slow"
+	NotifyFailOKSubject = "{check}{params} ok"
+	NotifySlowOKSubject = "{check}{params} ok"
+	NotifyFailText      = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\nError: {error}\n"
+	NotifySlowText      = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
+	NotifyFailOKText    = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\n"
+	NotifySlowOKText    = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
 )
 
 var (
-	// notifTypes is slice of available notifications. Empty is also ok, will be normalized.
-	// Add new type here!
-	notifTypes = []string{"", "mail", "jabber", "cmd"}
+	FailSchedule = []string{"1m", "5m", "10m"}
+	SlowSchedule = []string{"5m", "0"}
 )
 
 // Config represents whole configuration file parsed to stuct.
 type Config struct {
-	Global        shared.Global
-	Notifications []shared.NotifConfig `toml:"notify"`
-	Checks        []shared.CheckConfig `toml:"check"`
-	file          string
+	Global Global
+	Notify Notify
+	Check  Check
+	File   string
 }
 
+func (c *Config) isNoChecksDefined() bool {
+	return len(c.Check.Web) == 0 && len(c.Check.Port) == 0 && len(c.Check.Ping) == 0 && len(c.Check.Cmd) == 0
+}
+
+func (c *Config) isNoNotifyDefined() bool {
+	return len(c.Notify.Mail) == 0 && len(c.Notify.Jabber) == 0 && len(c.Notify.Cmd) == 0
+}
+
+// New returns Config with config file defined
 func New(file string) *Config {
-	return &Config{file: file}
+	return &Config{File: file}
 }
 
-func (c *Config) Read() error {
+func (c *Config) Read() ([]string, error) {
 
-	_, err := toml.DecodeFile(c.file, c)
+	unexp := []string{}
+
+	meta, err := toml.DecodeFile(c.File, c)
 	if err != nil {
-		return fmt.Errorf("in file %s: err: %s", c.file, err)
+		return unexp, fmt.Errorf("in file %s: err: %s", c.File, err)
 	}
-	return nil
+	keys := meta.Undecoded()
+	for _, key := range keys {
+		unexp = append(unexp, key.String())
+	}
+	return unexp, nil
 
 }
 
@@ -83,57 +108,75 @@ func (c *Config) validateGlobal() error {
 }
 
 func (c *Config) validateChecks() error {
-	if len(c.Checks) == 0 {
+	if c.isNoChecksDefined() {
 		return fmt.Errorf("config.validate: no checks defined, fix config file")
 	}
 
-	for i, check := range c.Checks {
+	for i, check := range c.Check.Web {
 		i++ // count from 1
 		if check.ID == "" {
 			return fmt.Errorf("config.validate: empty 'ID' in %d. check. This field is mandatory, fix config file", i)
 		}
-		if check.Check == "" {
+		if check.URL == "" {
 			return fmt.Errorf("config.validate: empty 'check' for %q. check. This field is mandatory, fix config file", check.ID)
 		}
-		if check.NotifyFail != nil {
-			if err := c.validateNotifyIDList(check.NotifyFail); err != nil {
-				return fmt.Errorf("config.validate: wrong notification in 'notify_fail' for %q. check, err: %v. fix config file", check.ID, err)
+		if check.FailNotify != nil {
+			if err := c.validateNotifyIDList(check.FailNotify); err != nil {
+				return fmt.Errorf("config.validate: wrong notification in 'fail_notify' for %q. web check, err: %v. fix config file", check.ID, err)
 			}
 		}
-		if check.NotifySlow != nil {
-			if err := c.validateNotifyIDList(check.NotifySlow); err != nil {
-				return fmt.Errorf("config.validate: wrong notification in 'notify_slow' for %q check, err: %v. fix config file", check.ID, err)
+		if check.SlowNotify != nil {
+			if err := c.validateNotifyIDList(check.SlowNotify); err != nil {
+				return fmt.Errorf("config.validate: wrong notification in 'slow_notify' for %q. web check, err: %v. fix config file", check.ID, err)
 			}
 		}
 	}
+	//TODO: validate all types
 	return nil
 }
 
 func (c *Config) validateNotifications() error {
-	for i, notif := range c.Notifications {
+	for i, notif := range c.Notify.Mail {
 		i++ //count from 1
 		if notif.ID == "" {
 			return fmt.Errorf("config.validate: empty 'ID' for %d. notification. This field is mandatory, fix config file", i)
 		}
-		if !found(notif.Type, notifTypes) {
-			return fmt.Errorf("config.validate: unknown Type for %q notification. Check config file", notif.ID)
-		}
-		if notif.Type != "cmd" && notif.Server == "" {
+		if notif.Server == "" {
 			return fmt.Errorf("config.validate: empty 'server' for %q notification. This field is mandatory, fix config file", notif.ID)
 		}
-		if notif.Type != "cmd" && notif.Port == 0 {
+		if notif.Port == 0 {
 			return fmt.Errorf("config.validate: Given 0 as 'port' for %q notification. This field must be non-zero, fix config file", notif.ID)
 		}
-		if notif.Type != "cmd" && notif.From == "" && notif.User == "" {
+		if notif.From == "" && notif.User == "" {
 			return fmt.Errorf("config.validate: empty 'from' for %q notification. This field is mandatory, fix config file", notif.ID)
 		}
-		if notif.Type != "cmd" && notif.To == nil {
+		if notif.To == nil {
 			return fmt.Errorf("config.validate: empty 'to' for %q notification. This field is mandatory, fix config file", notif.ID)
 		}
-		if notif.Type == "cmd" && notif.CmdTemplate == "" {
+
+	}
+
+	for _, notif := range c.Notify.Jabber {
+
+		if notif.Server == "" {
+			return fmt.Errorf("config.validate: empty 'server' for %q notification. This field is mandatory, fix config file", notif.ID)
+		}
+		if notif.Port == 0 {
+			return fmt.Errorf("config.validate: Given 0 as 'port' for %q notification. This field must be non-zero, fix config file", notif.ID)
+		}
+		if notif.User == "" {
+			return fmt.Errorf("config.validate: empty 'from' for %q notification. This field is mandatory, fix config file", notif.ID)
+		}
+		if notif.To == nil {
+			return fmt.Errorf("config.validate: empty 'to' for %q notification. This field is mandatory, fix config file", notif.ID)
+		}
+	}
+
+	for _, notif := range c.Notify.Cmd {
+
+		if notif.Cmd == "" {
 			return fmt.Errorf("config.validate: empty 'cmd' for %q notification. This field is mandatory, fix config file", notif.ID)
 		}
-
 	}
 	return nil
 }
@@ -152,46 +195,112 @@ func (c *Config) normalizeGlobal() {
 	if c.Global.Loglevel == "" {
 		c.Global.Loglevel = Loglevel
 	}
-	if c.Global.HTTPTimeout.Duration == 0 {
-		c.Global.HTTPTimeout.ParseDuration(HTTPTimeout)
+	if c.Global.HTTPTimeout == 0 {
+		c.Global.HTTPTimeout = HTTPTimeout
 	}
-	if c.Global.PingTimeout.Duration == 0 {
-		c.Global.PingTimeout.ParseDuration(PingTimeout)
+	if c.Global.PingTimeout == 0 {
+		c.Global.PingTimeout = PingTimeout
 	}
-	if c.Global.PortTimeout.Duration == 0 {
-		c.Global.PortTimeout.ParseDuration(PortTimeout)
+	if c.Global.PortTimeout == 0 {
+		c.Global.PortTimeout = PortTimeout
 	}
 }
 
 func (c *Config) normalizeChecks() {
 	notifids := c.getAllNotificationIDs()
-	for i, check := range c.Checks {
-		if check.Type == "" {
-			c.Checks[i].Type = CheckType
-		}
+	for i, check := range c.Check.Web {
 		if check.Method == "" {
-			c.Checks[i].Method = CheckMethod
+			c.Check.Web[i].Method = CheckMethod
 		}
-		if check.Repeat.Duration == 0 {
-			c.Checks[i].Repeat.ParseDuration(CheckRepeat)
+		if check.RepeatInterval == 0 {
+			c.Check.Web[i].RepeatInterval = CheckRepeatInterval
 		}
 		if check.ExpectedCode == 0 {
-			c.Checks[i].ExpectedCode = CheckExpectedCode
+			c.Check.Web[i].ExpectedCode = WebExpectedCode
 		}
 		if check.ExpectedTime == 0 {
-			c.Checks[i].ExpectedTime = CheckExpectedTime
+			c.Check.Web[i].ExpectedTime = WebExpectedTime
 		}
-		if check.AllowedFails < 1 {
-			c.Checks[i].AllowedFails = CheckAllowedFails
+		if check.AllowedFails < 0 {
+			c.Check.Web[i].AllowedFails = CheckAllowedFails
 		}
-		if check.AllowedSlows < 1 {
-			c.Checks[i].AllowedSlows = CheckAllowedSlows
+		if check.AllowedSlows < 0 {
+			c.Check.Web[i].AllowedSlows = CheckAllowedSlows
 		}
-		if check.NotifyFail == nil {
-			c.Checks[i].NotifyFail = notifids
+		if check.FailNotify == nil {
+			c.Check.Web[i].FailNotify = notifids
 		}
-		if check.NotifySlow == nil {
-			c.Checks[i].NotifySlow = notifids
+		if check.SlowNotify == nil {
+			c.Check.Web[i].SlowNotify = notifids
+		}
+	}
+	for i, check := range c.Check.Ping {
+		if check.RepeatInterval == 0 {
+			c.Check.Web[i].RepeatInterval = CheckRepeatInterval
+		}
+		if check.ExpectedCode == 0 {
+			c.Check.Web[i].ExpectedCode = PingExpectedCode
+		}
+		if check.ExpectedTime == 0 {
+			c.Check.Web[i].ExpectedTime = PingExpectedTime
+		}
+		if check.AllowedFails < 0 {
+			c.Check.Web[i].AllowedFails = PingAllowedFails
+		}
+		if check.AllowedSlows < 0 {
+			c.Check.Web[i].AllowedSlows = PingAllowedSlows
+		}
+		if check.FailNotify == nil {
+			c.Check.Web[i].FailNotify = notifids
+		}
+		if check.SlowNotify == nil {
+			c.Check.Web[i].SlowNotify = notifids
+		}
+	}
+	for i, check := range c.Check.Port {
+		if check.RepeatInterval == 0 {
+			c.Check.Web[i].RepeatInterval = CheckRepeatInterval
+		}
+		if check.ExpectedCode == 0 {
+			c.Check.Web[i].ExpectedCode = PortExpectedCode
+		}
+		if check.ExpectedTime == 0 {
+			c.Check.Web[i].ExpectedTime = PortExpectedTime
+		}
+		if check.AllowedFails < 0 {
+			c.Check.Web[i].AllowedFails = PortAllowedFails
+		}
+		if check.AllowedSlows < 0 {
+			c.Check.Web[i].AllowedSlows = PortAllowedSlows
+		}
+		if check.FailNotify == nil {
+			c.Check.Web[i].FailNotify = notifids
+		}
+		if check.SlowNotify == nil {
+			c.Check.Web[i].SlowNotify = notifids
+		}
+	}
+	for i, check := range c.Check.Cmd {
+		if check.RepeatInterval == 0 {
+			c.Check.Web[i].RepeatInterval = CheckRepeatInterval
+		}
+		if check.ExpectedCode == 0 {
+			c.Check.Web[i].ExpectedCode = CmdExpectedCode
+		}
+		if check.ExpectedTime == 0 {
+			c.Check.Web[i].ExpectedTime = CmdExpectedTime
+		}
+		if check.AllowedFails < 0 {
+			c.Check.Web[i].AllowedFails = CheckAllowedFails
+		}
+		if check.AllowedSlows < 0 {
+			c.Check.Web[i].AllowedSlows = CheckAllowedSlows
+		}
+		if check.FailNotify == nil {
+			c.Check.Web[i].FailNotify = notifids
+		}
+		if check.SlowNotify == nil {
+			c.Check.Web[i].SlowNotify = notifids
 		}
 	}
 }
@@ -199,26 +308,34 @@ func (c *Config) normalizeChecks() {
 // parseCheckVars will expand all $var or ${var} to actual
 // enviroment variable.
 func (c *Config) parseCheckVars() {
-	for i, check := range c.Checks {
-		c.Checks[i].Params = template.ParseEnv(check.Params, check.ID, "params")
-		c.Checks[i].Headers = template.ParseEnv(check.Headers, check.ID, "headers")
+	for i, check := range c.Check.Web {
+		c.Check.Web[i].FormParams = template.ParseEnv(check.FormParams, check.ID, "params")
+		c.Check.Web[i].Headers = template.ParseEnv(check.Headers, check.ID, "headers")
 	}
+	// TODO: add parsing for ping, port, cmd
 
 }
 
 func (c *Config) parseNotifVars() {
-	for i, notif := range c.Notifications {
-		c.Notifications[i].User = template.ParseEnv(notif.User, notif.ID, "user")
-		c.Notifications[i].Pass = template.ParseEnv(notif.Pass, notif.ID, "pass")
-		c.Notifications[i].Server = template.ParseEnv(notif.Server, notif.ID, "server")
+	for i, notif := range c.Notify.Mail {
+		c.Notify.Mail[i].User = template.ParseEnv(notif.User, notif.ID, "user")
+		c.Notify.Mail[i].Pass = template.ParseEnv(notif.Pass, notif.ID, "pass")
+		c.Notify.Mail[i].Server = template.ParseEnv(notif.Server, notif.ID, "server")
 	}
+	// TODO: add all notifications
 }
 
 // getAllNotificationIDs returns slice of all notification IDs.
 func (c *Config) getAllNotificationIDs() []string {
 	ids := []string{}
-	for _, notif := range c.Notifications {
-		ids = append(ids, notif.ID)
+	for _, mail := range c.Notify.Mail {
+		ids = append(ids, mail.ID)
+	}
+	for _, jabber := range c.Notify.Jabber {
+		ids = append(ids, jabber.ID)
+	}
+	for _, cmd := range c.Notify.Cmd {
+		ids = append(ids, cmd.ID)
 	}
 	return ids
 }
@@ -235,41 +352,37 @@ func (c *Config) validateNotifyIDList(ss []string) error {
 }
 
 func (c *Config) normalizeNotifications() {
-	for i, notif := range c.Notifications {
-		if notif.Type == "" {
-			c.Notifications[i].Type = NotifyType
-		}
+	for i, notif := range c.Notify.Mail {
 		if notif.From == "" {
-			c.Notifications[i].From = notif.User
+			c.Notify.Mail[i].From = notif.User
 		}
-		c.Notifications[i].SubjectFail = setTemplate(notif.SubjectFail, c.Global.NotifySubjectFail, NotifySubjectFail)
-		c.Notifications[i].SubjectFailOK = setTemplate(notif.SubjectFailOK, c.Global.NotifySubjectFailOK, NotifySubjectFailOK)
-		c.Notifications[i].TextFail = setTemplate(notif.TextFail, c.Global.NotifyTextFail, NotifyTextFail)
-		c.Notifications[i].TextFailOK = setTemplate(notif.TextFailOK, c.Global.NotifyTextFailOK, NotifyTextFailOK)
-		c.Notifications[i].SubjectSlow = setTemplate(notif.SubjectSlow, c.Global.NotifySubjectSlow, NotifySubjectSlow)
-		c.Notifications[i].SubjectSlowOK = setTemplate(notif.SubjectSlowOK, c.Global.NotifySubjectSlowOK, NotifySubjectSlowOK)
-		c.Notifications[i].TextSlow = setTemplate(notif.TextSlow, c.Global.NotifyTextSlow, NotifyTextSlow)
-		c.Notifications[i].TextSlowOK = setTemplate(notif.TextSlowOK, c.Global.NotifyTextSlowOK, NotifyTextSlowOK)
+		c.Notify.Mail[i].FailSubject = sets(notif.FailSubject, c.Global.NotifyFailOKSubject, NotifyFailSubject)
+		c.Notify.Mail[i].FailOKSubject = sets(notif.FailOKSubject, c.Global.NotifyFailOKSubject, NotifyFailOKSubject)
+		c.Notify.Mail[i].FailText = sets(notif.FailText, c.Global.NotifyFailText, NotifyFailText)
+		c.Notify.Mail[i].FailOKText = sets(notif.FailOKText, c.Global.NotifyFailOKText, NotifyFailOKText)
+		c.Notify.Mail[i].SlowSubject = sets(notif.SlowSubject, c.Global.NotifySlowSubject, NotifySlowSubject)
+		c.Notify.Mail[i].SlowOKSubject = sets(notif.SlowOKSubject, c.Global.NotifySlowOKSubject, NotifySlowOKSubject)
+		c.Notify.Mail[i].SlowText = sets(notif.SlowText, c.Global.NotifySlowText, NotifySlowText)
+		c.Notify.Mail[i].SlowOKText = sets(notif.SlowOKText, c.Global.NotifySlowOKText, NotifySlowOKText)
 
-		if notif.RepeatFail == nil {
-			c.Notifications[i].RepeatFail = []shared.Duration{
-				shared.Duration{Duration: 1 * time.Minute},
-				shared.Duration{Duration: 5 * time.Minute},
-				shared.Duration{Duration: 10 * time.Minute},
-			}
-		}
-		if notif.RepeatSlow == nil {
-			c.Notifications[i].RepeatSlow = []shared.Duration{
-				shared.Duration{Duration: 5 * time.Minute},
-				shared.Duration{Duration: 0},
-			}
-		}
+		c.Notify.Mail[i].FailSchedule = setss(notif.FailSchedule, c.Global.FailSchedule, FailSchedule)
+		c.Notify.Mail[i].SlowSchedule = setss(notif.SlowSchedule, c.Global.SlowSchedule, SlowSchedule)
 	}
 }
 
-func setTemplate(t, glob, def string) string {
+func sets(t, glob, def string) string {
 	if t == "" {
 		if glob != "" {
+			return glob
+		}
+		return def
+	}
+	return t
+}
+
+func setss(t, glob, def []string) []string {
+	if len(t) == 0 {
+		if len(glob) != 0 {
 			return glob
 		}
 		return def

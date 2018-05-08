@@ -1,3 +1,11 @@
+## Commented zoriX main configuration file #
+#
+# This file serves as configuration documentation. It is 
+# guaranteed by tests, that it will contain **all**
+# available config variables.
+#
+# All variables must have non default valus to pass the test.
+
 [global]
 # In [global] section we define some general options.
 
@@ -14,19 +22,22 @@ workers = 2
 loglevel = "warn"
 
 # http_timeout.
-# default: 60s
+# default: 60
+# In seconds.
 # Define timeout for http requests.
-http_timeout = "60s"
+http_timeout = 60
 
 # ping_timeout.
-# default: 60s
+# default: 60
+# In seconds
 # Define timeout for ping command. Will be passed as argument to ping.
-ping_timeout = "60s"
+ping_timeout = 60
 
 # port_timeout.
-# default: 5s
+# default: 10
+# In seconds.
 # Define timeout for port scanner. It should be quit small.
-port_timeout = "5s"
+port_timeout = 10
 
 # Notification templates, you can overwrite them inside notify sections.
 # There are 2 types of notifications:
@@ -62,30 +73,69 @@ port_timeout = "5s"
 #    {response}     - whole response body or cmd output
 #    {error}        - error returned by check
 #
-notify_subject_fail = "{check}{params} problem"
-notify_subject_slow = "{check}{params} slow"
-notify_subject_fail_ok = "{check}{params} ok"
-notify_subject_slow_ok = "{check}{params} ok"
-notify_text_fail = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\nError: {error}\n"
-notify_text_slow = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
-notify_text_fail_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\n"
-notify_text_slow_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
+notify_fail_subject = "{check}{params} problem"
+notify_fail_text = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\nError: {error}\n"
+notify_fail_ok_subject = "{check}{params} ok"
+notify_fail_ok_text = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\n"
+notify_slow_subject = "{check}{params} slow"
+notify_slow_text = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
+notify_slow_ok_subject = "{check}{params} ok"
+notify_slow_ok_text = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
 
+# fail_schedule.
+# default: "1m", "5m", "10m"
+# It may be more convinient to change default schedule for 
+# fail notifications in global section and ommit them in nofify sections.
+# If last value is 0 it means it will stop sending notifications.
+fail_schedule = ["30s", "1m"]
 
-[[notify]]
-# There can be unlimited amount of [[notify]] sections.
+# slow_schedule.
+# default: "5m", "0"
+# The same as fail_schedule but for timeoted events.
+slow_schedule = ["5m", "0"]
+
+[[notify.mail]]
+# There can be unlimited amount of [[notify.*]] sections.
+# Currently following notifications are available:
+#
+# [[notify.mail]]
+# [[notify.jabber]]
+# [[notify.cmd]]
+
+### Following parameters are available for every notification type. ##
 
 # id, MANDATORY.
 # You can reference it in notify_slow and notify_fail in [[check]]. 
 id = "notes-mail"
 
-# type.
-# default: mail
-# Notification type, currently available:
-# type = "mail"
-# type = "jabber"
-# type = "cmd"
-type = "mail"
+# Overwrite global template if needed.
+fail_subject = "{check}{params} problem"
+fail_text = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\nError: {error}\n"
+fail_ok_subject = "{check}{params} ok"
+fail_ok_text = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\n"
+slow_subject = "{check}{params} slow"
+slow_text = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
+slow_ok_subject = "{check}{params} ok"
+slow_ok_text = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
+
+# fail_schedule
+# default: ["1m", "5m", "10m"]
+# This is notification schedule for failure event. With default configuration
+# it will send second message 1 minute after first, third after 5 minutes and all others with 10 minutes between each other.
+#
+# If you want to stop sending, define last values as "0".
+fail_schedule = ["1m", "5m", "10m"]
+
+# slow_schedule.
+# default: ["5m", "0"]
+# This is notification schedule for slowdown event. The same apply as for repeat_fail.
+slow_schedule = ["60s", "6m", "0"]
+
+# no_recovery.
+# default: false
+# true/false
+# If true no recovery message will be sent. Useful for cmd type, but can be used for every type.
+no_recovery = true
 
 # server, MANDATORY.
 # Service server name or ip.
@@ -94,15 +144,13 @@ server = "magikinfo.cz"
 # port, MANDATORY.
 # Service port. 
 # For mail, we support TLS on 465 and STARTTLS on 587.
-# For jabber usually 5223.
 port = 587
 
 # ignore_cert.
 # default: false
 # options: true/false
 # Allows you to ignore wrong certificate on mail server.
-# If jabber server allows that, you can skip cert check too.
-ignore_cert = false
+ignore_cert = true
 
 # user, MANDATORY.
 # Username to authenticate with.
@@ -117,16 +165,114 @@ pass = "pass"
 # from.
 # default: taken from user.
 # Sent from (if supported by service).
-# Ignored for jabber.
 from = "tester@magikinfo.cz"
 
 # to, MANDATORY.
 # Sent to (if make sense for this type). This is list of usernames separated by comma.
 to = ["tester@zori.cz"]
 
+
+[[notify.jabber]]
+
+# id, MANDATORY.
+# You can reference it in notify_slow and notify_fail in [[check]]. 
+id = "notes-mail"
+
+# Overwrite global template if needed.
+fail_subject = "{check}{params} problem"
+fail_text = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\nError: {error}\n"
+fail_ok_subject = "{check}{params} ok"
+fail_ok_text = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\n"
+slow_subject = "{check}{params} slow"
+slow_text = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
+slow_ok_subject = "{check}{params} ok"
+slow_ok_text = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
+
+# fail_schedule
+# default: ["1m", "5m", "10m"]
+# This is notification schedule for failure event. With default configuration
+# it will send second message 1 minute after first, third after 5 minutes and all others with 10 minutes between each other.
+#
+# If you want to stop sending, define last values as "0".
+fail_schedule = ["1m", "5m", "10m"]
+
+# slow_schedule.
+# default: ["5m", "0"]
+# This is notification schedule for slowdown event. The same apply as for repeat_fail.
+slow_schedule = ["60s", "6m", "0"]
+
+# no_recovery.
+# default: false
+# true/false
+# If true no recovery message will be sent. Useful for cmd type, but can be used for every type.
+no_recovery = true
+
+# server, MANDATORY.
+# Service server name or ip.
+server = "magikinfo.cz"
+
+# port, MANDATORY.
+# Service port. 
+# For jabber usually 5222.
+port = 5222
+
+# ignore_cert.
+# default: false
+# options: true/false
+# If jabber server allows that, you can skip cert check.
+ignore_cert = true
+
+# user, MANDATORY.
+# Username to authenticate with.
+user = "tester@magikinfo.cz"
+
+# pass, MANDATORY.
+# User password.
+# If pass is empty, but user given it will not attempt to send mail.
+# Useful for development or testing.
+pass = "pass"
+
+# to, MANDATORY.
+# Sent to (if make sense for this type). This is list of usernames separated by comma.
+to = ["tester@zori.cz"]
+
+[[notify.cmd]]
+
+# id, MANDATORY.
+# You can reference it in notify_slow and notify_fail in [[check]]. 
+id = "notes-mail"
+
+# Overwrite global template if needed.
+fail_subject = "{check}{params} problem"
+fail_text = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\nError: {error}\n"
+fail_ok_subject = "{check}{params} ok"
+fail_ok_text = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\n"
+slow_subject = "{check}{params} slow"
+slow_text = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
+slow_ok_subject = "{check}{params} ok"
+slow_ok_text = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
+
+# fail_schedule
+# default: ["1m", "5m", "10m"]
+# This is notification schedule for failure event. With default configuration
+# it will send second message 1 minute after first, third after 5 minutes and all others with 10 minutes between each other.
+#
+# If you want to stop sending, define last values as "0".
+fail_schedule = ["1m", "5m", "10m"]
+
+# slow_schedule.
+# default: ["5m", "0"]
+# This is notification schedule for slowdown event. The same apply as for repeat_fail.
+slow_schedule = ["60s", "6m", "0"]
+
+# no_recovery.
+# default: false
+# true/false
+# If true no recovery message will be sent. Useful for cmd type, but can be used for every type.
+no_recovery = true
+
 # cmd.
 # default: ""
-# Command used for cmd type notification.
 # You can use any type of variables in cmd:
 #
 # - check variables,
@@ -138,136 +284,273 @@ to = ["tester@zori.cz"]
 # cmd = 'echo "check: {check}, notification text: {text}, h: ${HOME}"'
 cmd = 'notify-send "{subject}" "{text}"'
 
-# Overwrite global template if needed.
-#subject_fail = "{check}{params} problem"
-#subject_slow = "{check}{params} slow"
-#subject_fail_ok = "{check}{params} ok"
-#subject_slow_ok = "{check}{params} ok"
-#text_fail = "FAILURE:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\nError: {error}\n"
-#text_slow = "SLOW RESPONSE:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
-#text_fail_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse code: {response_code}\n"
-#text_slow_ok = "RECOVERED:\n{check}{params}\nTime: {timestamp}\n\nResponse/Expected time: {response_time}/{expected_time}\n"
 
-# repeat_fail.
-# default: ["1m", "5m", "10m"]
-# This is notification schedule for failure event. With default configuration
-# it will send second message 1 minute after first, third after 5 minutes and all others with 10 minutes between each other.
+[[check.web]]
+# Check section.
+# There can be unlimited amount of checks sections.
 #
-# If you want to stop sending, define last values as "0".
-repeat_fail = ["1m", "5m", "10m"]
-
-# repeat_slow.
-# default: ["5m", "0"]
-# This is notification schedule for slowdown event. The same apply as for repeat_fail.
-repeat_slow = ["60s", "6m", "0"]
-
-# no_recovery.
-# default: false
-# true/false
-# If true no recovery message will be sent. Useful for cmd type.
-no_recovery = false
-
-[[check]]
-# There can be unlimited amount of [[check]] sections.
+# Currently available: 
+#
+# [[check.web]]          - Normal web check.
+# [[check.cmd]]          - Run any command to check something.
+# [[check.ping]]         - Ping host.
+# [[check.port]]         - Check port.
 
 # ID, MANDATORY.
 # ID is string, it can be anything.
 # Currently useful for logging, may be used in future.
-ID = "google-web"
+id = "google-web"
 
-# type
-# default: "web"
-# Currently available: 
-#
-# type = "web"          - Normal web check.
-# type = "insecureweb"  - Web check ignoring certificate.
-# type = "cmd"          - Run any command to check something.
-# type = "ping"         - ping server
-# type = "port"         - checking port
-type = "web"
+# repeat_interval.
+# default: 60
+# Defines how often check should run. Time is counted from the end of last check.
+repeat_interval = 60
 
-# check, MANDATORY.
+# expected_code.
+# default: 200
+# Requested code. All types return codes are mapped to html codes.
+expected_code = 200
+
+# timeout.
+# default: 1000 ms
+# In milliseconds.
+# Determines in how much ms request have to be realized.
+# If request takes longer, it is counted as Slow.
+timeout = 500
+
+# allowed_fails.
+# default: 0
+# allowed: >=0
+# How many failures can occur before first notification is send.
+allowed_fails = 2
+
+# allowed_slows.
+# default: 2
+# allowed: >=0
+# How many slowdowns can occur before first notification is send.
+allowed_slows = 3
+
+# fail_notify.
+# default: all configured notifications
+# You can limit which notifications will be used for this check. It is list of notification ID's.
+# You can disable fail notification completely for this check by setting:
+# notify_fail = []
+fail_notify = ["notes-mail"]
+
+# slow_notify.
+# default: all configured notifications
+# The same as notify_fail, but for slowdowns.
+slow_notify = ["notes-mail"]
+
+# url, MANDATORY.
 # Depending on type, check can be:
 # 
 # - web & insecureweb:  `http://www.google.com`
 # - cmd:                `/usr/bin/ping` or just `ping`
 # - ping:               `google.com`
 # - port:               `google.com:80`
-check = "http://www.google.com"
+url = "http://www.google.com"
 
-# params.
+# form_params.
 # default: ""
-# Params meaning depends on type:
+# Params can be like:
 #
-# - web & insecureweb: those are Form params
 #   - `"password=123&email=xxx"` (urlencoded POST)
 #   - `'{"zorix":"is great"}'` (any json you need)
-# - cmd: passed to check as cmd line params.
-#   - "google.com -c1 -t30"
-params = '{"data": [{"password": "xxx", "email": "xxx"}]}'
+form_params = '{"data": [{"password": "xxx", "email": "xxx"}]}'
 
 # method.
 # default: "GET"
 # Defines http request method. Available: GET, POST, PUT, DELETE, ...
+method = "GET"
 
 # headers.
 # default: ""
-# Headers are used for http requests.
-# headers = ```
-#Authorization: Bearer abcbc123123abc
-#Content-Type: application/json
-#```
+# Any http headers. Content-Type is added automatically if not defined, 
+# and depends on form_params type (json or url-encoded)
+headers = '''
+Authorization: Bearer abcbc123123abc
+Content-Type: application/json
+'''
 
-# redirs.
-# default: 0 (no redirs)
+# ignore_cert
+# default: false
+# true/false
+# Allows you to test webs with wrong certificate.
+ignore_cert = true
+
+
+# redirects.
+# default: 0 (no redirections allowed)
 # You can define, how many redirects are allowed.
-redirs = 10
-
-# repeat.
-# default: "1m"
-# Defines how often check should run. Time is counted from the end of last check.
-repeat = "1m"
-
-# code.
-# default: 200
-# Requested code. All types return codes are mapped to html codes.
-# For cmd type:
-# 200 - all ok
-# 404 - command not found or error while starting process
-# 500 - non-0 code returned
-code = 200
-
-# time.
-# default: 1000 ms
-# Determines in how much ms request have to be realized.
-time = 500
+redirects = 10
 
 # look_for.
 # default: ""
 # If given string is found in response, request was successful.
 # If empty, response check is not performed.
-look_for = ""
+look_for = "super response"
 
-# fails.
-# default: 1
+[[check.port]]
+
+# host, MANDATORY.
+# Hostname or ip of tested host.
+host = "1.1.1.1"
+
+# port, MANDATORY.
+# Port to check.
+port = 389
+
+# ID, MANDATORY.
+# ID is string, it can be anything.
+# Currently useful for logging, may be used in future.
+id = "mailgoogle-port"
+
+# repeat_interval.
+# default: 60
+# Defines how often check should run. Time is counted from the end of last check.
+repeat_interval = 60
+
+# expected_code.
+# default: 0
+# Requested return code. Port tests returns 0 if check succeeded.
+# TODO: describe return codes for port test.
+expected_code = 2
+
+# timeout.
+# default: 1000 ms
+# In milliseconds.
+# Determines in how much ms request have to be realized.
+# If request takes longer, it is counted as Slow.
+timeout = 500
+
+# allowed_fails.
+# default: 0
+# allowed: >=0
 # How many failures can occur before first notification is send.
-# Must be bigger then 0.
-fails = 2
+allowed_fails = 2
 
-# slows.
-# default: 3
+# allowed_slows.
+# default: 2
+# allowed: >=0
 # How many slowdowns can occur before first notification is send.
-# Must be bigger then 0.
-slows = 2
+allowed_slows = 3
 
-# notify_fail.
+# fail_notify.
 # default: all configured notifications
 # You can limit which notifications will be used for this check. It is list of notification ID's.
 # You can disable fail notification completely for this check by setting:
 # notify_fail = []
-notify_fail = ["notes-mail"]
+fail_notify = ["notes-mail"]
 
-# notify_slow.
+# slow_notify.
 # default: all configured notifications
 # The same as notify_fail, but for slowdowns.
-notify_slow = ["notes-mail"]
+slow_notify = ["notes-mail"]
+
+[[check.ping]]
+
+# host, MANDATORY.
+# Hostname or ip which will be pinged.
+host = "some-server.com"
+
+
+# ID, MANDATORY.
+# ID is string, it can be anything.
+# Currently useful for logging, may be used in future.
+id = "google-web"
+
+# repeat_interval.
+# default: 60
+# Defines how often check should run. Time is counted from the end of last check.
+repeat_interval = 60
+
+# expected_code.
+# default: 0
+# Requested code. You want 0 here.
+expected_code = 1
+
+# timeout.
+# default: 1000 ms
+# In milliseconds.
+# Determines in how much ms request have to be realized.
+# If request takes longer, it is counted as Slow.
+timeout = 500
+
+# allowed_fails.
+# default: 0
+# allowed: >=0
+# How many failures can occur before first notification is send.
+allowed_fails = 2
+
+# allowed_slows.
+# default: 2
+# allowed: >=0
+# How many slowdowns can occur before first notification is send.
+allowed_slows = 3
+
+# fail_notify.
+# default: all configured notifications
+# You can limit which notifications will be used for this check. It is list of notification ID's.
+# You can disable fail notification completely for this check by setting:
+# notify_fail = []
+fail_notify = ["notes-mail"]
+
+# slow_notify.
+# default: all configured notifications
+# The same as notify_fail, but for slowdowns.
+slow_notify = ["notes-mail"]
+
+[[check.cmd]]
+
+# cmd, MANDATORY.
+# Full command line that should be run. If return code is the same as expected_code then check was successful.
+cmd = "which /usr/bin/bash"
+
+
+# ID, MANDATORY.
+# ID is string, it can be anything.
+# Currently useful for logging, may be used in future.
+id = "google-web"
+
+# repeat_interval.
+# default: 60
+# Defines how often check should run. Time is counted from the end of last check.
+repeat_interval = 60
+
+# expected_code.
+# default: 0
+# Requested cmd return code. Usually you want to have 0 here (no error).
+expected_code = 2
+
+# timeout.
+# default: 1000 ms
+# In milliseconds.
+# Determines in how much ms command has to finish.
+# If request takes longer, it is counted as Slow.
+timeout = 5000
+
+# allowed_fails.
+# default: 0
+# allowed: >=0
+# How many failures can occur before first notification is send.
+allowed_fails = 2
+
+# allowed_slows.
+# default: 2
+# allowed: >=0
+# How many slowdowns can occur before first notification is send.
+allowed_slows = 3
+
+# fail_notify.
+# default: all configured notifications
+# You can limit which notifications will be used for this check. It is list of notification ID's.
+# You can disable fail notification completely for this check by setting:
+# notify_fail = []
+fail_notify = ["notes-mail"]
+
+# slow_notify.
+# default: all configured notifications
+# The same as notify_fail, but for slowdowns.
+slow_notify = ["notes-mail"]
+
