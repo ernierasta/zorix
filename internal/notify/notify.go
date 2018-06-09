@@ -48,7 +48,7 @@ func (m *Manager) Listen() {
 		for {
 			select {
 			case ncheck := <-m.notifChan:
-				go m.send(ncheck)
+				m.send(ncheck)
 			}
 
 		}
