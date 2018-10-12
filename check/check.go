@@ -142,9 +142,7 @@ func startWorker(id string, w shared.Worker, typeChan, resultsChan chan shared.C
 		c.ReturnedCode = code
 		c.ReturnedTime = time
 		c.Response = body
-		if err != nil {
-			c.Error = err
-		}
+		c.Error = err
 		resultsChan <- c
 	}
 }
